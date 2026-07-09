@@ -1,0 +1,14 @@
+resource_id,resource_name,resource_type,region,monthly_cost_usd,status,last_active_date
+vol-0abc123def456789a,prod-data-volume-1,EBS Volume,us-east-1,45.00,available,2026-01-10
+vol-0abc123def456789b,legacy-backup-vol,EBS Volume,us-west-2,22.50,available,2025-11-01
+i-0123456789abcdef0,dev-server-old,EC2 Instance,us-east-1,180.00,running,2025-12-01
+i-0123456789abcdef1,staging-api,EC2 Instance,eu-west-1,95.00,running,2026-07-01
+eipalloc-0abc1234def56789a,unassigned-eip-1,Elastic IP,us-east-1,3.65,unassociated,2026-03-15
+eipalloc-0abc1234def56789b,unassigned-eip-2,Elastic IP,us-west-2,3.65,unassociated,2026-04-20
+arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/prod-alb/abc123,prod-alb-unused,Load Balancer,us-east-1,22.00,idle,2026-01-05
+arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/staging-alb/def456,staging-alb-idle,Load Balancer,us-west-2,18.00,idle,2026-02-10
+snap-0abc123def456789a,db-snapshot-old,Snapshot,us-east-1,8.50,completed,2025-10-01
+snap-0abc123def456789b,ami-backup-2024,Snapshot,us-east-1,6.75,completed,2025-09-15
+snap-0abc123def456789c,weekly-snap-active,Snapshot,us-west-2,4.20,completed,2026-06-01
+i-0123456789abcdef2,active-prod-server,EC2 Instance,us-east-1,250.00,running,2026-07-07
+vol-0abc123def456789c,attached-prod-vol,EBS Volume,us-east-1,30.00,in-use,2026-07-07
