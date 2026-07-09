@@ -6,178 +6,358 @@
   <title>Cloud Cost Optimizer</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    /* ── Design tokens ───────────────────────────────── */
+    :root {
+      --sidebar-w   : 15rem;
+      --header-h    : 3rem;
+      --gap         : 0.75rem;
+      --radius      : 0.5rem;
+      --bg          : #0f1117;
+      --surface     : #1a1f2e;
+      --border      : #2d3748;
+      --text        : #e2e8f0;
+      --muted       : #718096;
+      --accent      : #63b3ed;
+      --green       : #68d391;
+      --orange      : #f6ad55;
+      --red         : #fc8181;
+      --yellow      : #fbd38d;
+    }
 
-    /* ── Auth overlay ── */
+    /* ── Reset & base ────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      /* page scroll only allowed on screens narrower than 1280px */
+      overflow: hidden;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      /* fluid base font: 13px at 1280px → 15px at 1920px */
+      font-size: clamp(0.8125rem, 0.625rem + 0.3vw, 0.9375rem);
+    }
+    @media (max-width: 1279px) {
+      html, body { overflow: auto; }
+    }
+
+    /* ── Auth overlay ────────────────────────────────── */
     #auth-overlay {
-      position: fixed; inset: 0; background: #0f1117;
-      display: flex; align-items: center; justify-content: center; z-index: 100;
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; align-items: center; justify-content: center; z-index: 200;
     }
     #auth-overlay.hidden { display: none; }
 
     .auth-card {
-      background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px;
-      padding: 2rem; width: 100%; max-width: 420px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 0.75rem; padding: 2rem; width: 100%; max-width: 26rem;
     }
-    .auth-card h1 { font-size: 1.5rem; margin-bottom: 0.25rem; color: #63b3ed; }
-    .auth-card p  { font-size: 0.85rem; color: #718096; margin-bottom: 1.5rem; }
-    .form-group { margin-bottom: 1rem; }
-    .form-group label { display: block; font-size: 0.8rem; color: #a0aec0; margin-bottom: 0.3rem; }
-    .form-group input {
-      width: 100%; padding: 0.6rem 0.75rem; background: #0f1117; border: 1px solid #2d3748;
-      border-radius: 6px; color: #e2e8f0; font-size: 0.9rem; outline: none;
-    }
-    .form-group input:focus { border-color: #63b3ed; }
+    .auth-card h1 { font-size: 1.4rem; color: var(--accent); margin-bottom: 0.2rem; }
+    .auth-card > p { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.25rem; }
 
+    .form-group { margin-bottom: 0.9rem; }
+    .form-group label { display: block; font-size: 0.75rem; color: #a0aec0; margin-bottom: 0.25rem; }
+    .form-group input,
+    .form-group select {
+      width: 100%; padding: 0.55rem 0.7rem;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 0.375rem; color: var(--text); font-size: 0.875rem; outline: none;
+      appearance: none;
+    }
+    .form-group input:focus,
+    .form-group select:focus { border-color: var(--accent); }
+
+    .auth-note {
+      font-size: 0.72rem; color: #a0aec0; background: rgba(99,179,237,0.08);
+      border: 1px solid rgba(99,179,237,0.2); border-radius: 0.375rem;
+      padding: 0.45rem 0.65rem; margin-bottom: 0.75rem;
+    }
+    .auth-error-msg { color: var(--red); font-size: 0.8rem; margin-top: 0.4rem; min-height: 1.1rem; }
+    .auth-toggle { text-align: center; margin-top: 0.9rem; font-size: 0.8rem; color: var(--muted); }
+    .auth-toggle span { color: var(--accent); cursor: pointer; text-decoration: underline; }
+
+    /* ── Buttons ─────────────────────────────────────── */
     .btn {
-      display: inline-block; padding: 0.6rem 1.2rem; border-radius: 6px; border: none;
-      cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: opacity 0.15s;
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;
+      padding: 0.5rem 1rem; border-radius: var(--radius); border: none;
+      cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
     }
     .btn:hover:not(:disabled) { opacity: 0.85; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: #3182ce; color: #fff; width: 100%; margin-top: 0.5rem; }
-    .btn-danger  { background: #c53030; color: #fff; }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-primary { background: #3182ce; color: #fff; width: 100%; margin-top: 0.4rem; }
     .btn-success { background: #276749; color: #fff; }
-    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+    .btn-danger  { background: #c53030; color: #fff; }
+    .btn-warn    { background: #744210; color: var(--orange); border: 1px solid #c05621; }
+    .btn-ghost   { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); }
+    .btn-sm      { padding: 0.28rem 0.6rem; font-size: 0.74rem; }
+    .btn-xs      { padding: 0.18rem 0.45rem; font-size: 0.68rem; }
+    .btn-full    { width: 100%; }
 
-    .auth-toggle { text-align: center; margin-top: 1rem; font-size: 0.82rem; color: #718096; }
-    .auth-toggle span { color: #63b3ed; cursor: pointer; text-decoration: underline; }
-
-    /* Single, uniquely-IDed error element per form */
-    .auth-error-msg { color: #fc8181; font-size: 0.82rem; margin-top: 0.5rem; min-height: 1.2rem; }
-
-    /* ── Main layout ── */
-    #main-app { display: none; }
-    #main-app.visible { display: block; }
-
-    header {
-      background: #1a1f2e; border-bottom: 1px solid #2d3748;
-      padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between;
-    }
-    header h1 { font-size: 1.2rem; color: #63b3ed; }
-    .header-right { display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; color: #a0aec0; }
-
-    .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
-
-    /* ── Loading spinner ── */
+    /* ── Loading overlay ─────────────────────────────── */
     #loading-overlay {
-      display: none; position: fixed; inset: 0; background: rgba(15,17,23,0.75);
-      z-index: 50; align-items: center; justify-content: center; flex-direction: column; gap: 1rem;
+      display: none; position: fixed; inset: 0; background: rgba(15,17,23,0.7);
+      z-index: 150; align-items: center; justify-content: center; flex-direction: column; gap: 0.85rem;
     }
     #loading-overlay.active { display: flex; }
     .spinner {
-      width: 44px; height: 44px; border: 4px solid #2d3748;
-      border-top-color: #63b3ed; border-radius: 50%; animation: spin 0.75s linear infinite;
+      width: 2.5rem; height: 2.5rem; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner-label { color: #a0aec0; font-size: 0.9rem; }
+    #spinner-label { color: #a0aec0; font-size: 0.85rem; }
 
-    /* ── Global error banner ── */
+    /* ── App shell: CSS Grid ─────────────────────────── */
+    #main-app {
+      display: none;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #main-app.visible {
+      display: grid;
+      grid-template-rows: var(--header-h) 1fr;
+      grid-template-columns: var(--sidebar-w) 1fr;
+      grid-template-areas:
+        "header  header"
+        "sidebar main";
+    }
+
+    /* ── Header ──────────────────────────────────────── */
+    #app-header {
+      grid-area: header;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.25rem; z-index: 10;
+    }
+    #app-header h1 { font-size: 1rem; color: var(--accent); letter-spacing: -0.01em; }
+    .header-right   { display: flex; align-items: center; gap: 0.75rem; font-size: 0.8rem; color: var(--muted); }
+
+    .role-badge {
+      display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
+      font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .role-admin  { background: #1c4532; color: var(--green); border: 1px solid #276749; }
+    .role-viewer { background: #2d3748; color: #a0aec0; border: 1px solid #4a5568; }
+
+    /* ── Sidebar ─────────────────────────────────────── */
+    #sidebar {
+      grid-area: sidebar;
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow-y: auto; overflow-x: hidden;
+    }
+
+    .sidebar-section { padding: 0.85rem 0.85rem 0.5rem; }
+    .sidebar-section + .sidebar-section { border-top: 1px solid var(--border); }
+    .sidebar-label {
+      font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.55rem;
+    }
+
+    /* Viewer info banner */
+    #viewer-banner {
+      display: none;
+      background: rgba(74,85,104,0.25); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.65rem 0.75rem;
+      font-size: 0.75rem; color: #a0aec0; line-height: 1.5;
+    }
+
+    /* Users table (admin sidebar) */
+    #users-section { display: none; }
+    .sidebar-user-row {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.35rem 0; border-bottom: 1px solid rgba(45,55,72,0.6);
+      font-size: 0.75rem;
+    }
+    .sidebar-user-row:last-child { border-bottom: none; }
+    .u-avatar {
+      width: 1.6rem; height: 1.6rem; border-radius: 50%;
+      background: #3182ce; display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .u-name  { color: var(--text); font-weight: 600; flex: 1; }
+    .u-email { font-size: 0.68rem; color: var(--muted); }
+
+    /* ── Main content area ───────────────────────────── */
+    #main-content {
+      grid-area: main;
+      display: flex; flex-direction: column;
+      gap: var(--gap); padding: var(--gap);
+      overflow: hidden; /* no scroll on 1280px+ — sections fill height */
+      min-height: 0;
+    }
+
+    /* ── Error banner ────────────────────────────────── */
     #error-banner {
-      display: none; background: #742a2a; border: 1px solid #c53030; border-radius: 8px;
-      color: #fc8181; font-size: 0.85rem; padding: 0.75rem 1rem; margin-bottom: 1rem;
-      display: none; align-items: center; gap: 0.75rem;
+      display: none; background: #742a2a; border: 1px solid #c53030;
+      border-radius: var(--radius); color: var(--red);
+      font-size: 0.8rem; padding: 0.5rem 0.85rem;
+      align-items: center; gap: 0.75rem; flex-shrink: 0;
     }
     #error-banner.active { display: flex; }
-    #error-banner button { background: none; border: none; color: #fc8181; cursor: pointer; font-size: 1rem; margin-left: auto; }
+    #error-banner button { background: none; border: none; color: var(--red); cursor: pointer; margin-left: auto; }
 
-    /* ── Upload section ── */
+    /* ── Upload section ──────────────────────────────── */
     .upload-section {
-      background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px;
-      padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.7rem 1rem;
+      flex-shrink: 0;
     }
-    .upload-section h2 { font-size: 1rem; color: #e2e8f0; margin-bottom: 1rem; }
+    .upload-section h2 { font-size: 0.82rem; color: var(--text); margin-bottom: 0.5rem; }
+    .upload-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+
     .drop-zone {
-      border: 2px dashed #2d3748; border-radius: 8px; padding: 1.5rem;
-      text-align: center; color: #718096; cursor: pointer; transition: border-color 0.2s;
-      position: relative;
+      flex: 1; min-width: 12rem;
+      border: 1.5px dashed var(--border); border-radius: var(--radius);
+      padding: 0.55rem 0.85rem; text-align: center; color: var(--muted);
+      cursor: pointer; transition: border-color 0.2s; position: relative; font-size: 0.78rem;
     }
-    .drop-zone.dragover { border-color: #63b3ed; background: rgba(99,179,237,0.05); }
+    .drop-zone.dragover { border-color: var(--accent); background: rgba(99,179,237,0.05); }
     .drop-zone input[type="file"] {
       position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
     }
-    .drop-zone p { font-size: 0.85rem; pointer-events: none; }
-    .drop-zone .file-name { color: #63b3ed; font-weight: 600; margin-top: 0.3rem; }
-    .upload-controls { display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; flex-wrap: wrap; }
-    #upload-status { font-size: 0.82rem; }
-    .status-ok   { color: #68d391; }
-    .status-err  { color: #fc8181; }
-    .status-info { color: #63b3ed; }
+    .drop-zone .file-hint { pointer-events: none; }
+    .drop-zone .file-chosen { color: var(--accent); font-weight: 600; font-size: 0.78rem; }
 
-    /* ── Summary cards ── */
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-    .card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 1.2rem 1.5rem; }
-    .card-label { font-size: 0.75rem; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; }
-    .card-value { font-size: 2rem; font-weight: 700; color: #63b3ed; margin-top: 0.25rem; }
-    .card-sub { font-size: 0.78rem; color: #a0aec0; margin-top: 0.15rem; }
+    #upload-status { font-size: 0.78rem; flex-shrink: 0; }
+    .status-ok   { color: var(--green); }
+    .status-err  { color: var(--red); }
+    .status-info { color: var(--accent); }
 
-    /* ── Charts ── */
-    .charts { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
-    @media (max-width: 700px) { .charts { grid-template-columns: 1fr; } }
-    .chart-box { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 1.25rem; }
-    .chart-box h3 { font-size: 0.85rem; color: #a0aec0; margin-bottom: 1rem; }
-    .chart-box canvas { max-height: 260px; }
-
-    /* ── Findings table ── */
-    .table-section { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 1.25rem; }
-    .table-section h2 { font-size: 1rem; margin-bottom: 1rem; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    th {
-      background: #0f1117; color: #718096; text-align: left; padding: 0.6rem 0.75rem;
-      font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72rem;
+    /* ── Summary cards ───────────────────────────────── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gap); flex-shrink: 0;
     }
-    td { padding: 0.65rem 0.75rem; border-top: 1px solid #2d3748; vertical-align: middle; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.75rem 1rem;
+    }
+    .card-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .card-value { font-size: 1.65rem; font-weight: 700; color: var(--accent); margin-top: 0.15rem; line-height: 1.1; }
+    .card-sub   { font-size: 0.7rem; color: #a0aec0; margin-top: 0.15rem; }
+
+    /* ── Charts section ──────────────────────────────── */
+    .charts {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+      /* on desktop: takes remaining height between cards and table */
+      flex: 1; min-height: 0;
+    }
+    .chart-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.75rem;
+      display: flex; flex-direction: column; min-height: 0;
+    }
+    .chart-box h3 { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; flex-shrink: 0; }
+    .chart-box .chart-inner {
+      flex: 1; min-height: 0; position: relative;
+    }
+    .chart-box canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+
+    /* ── Findings section ────────────────────────────── */
+    .findings-section {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); display: flex; flex-direction: column;
+      flex-shrink: 0;           /* don't grow — fixed height */
+      height: 17.5rem;          /* ~280px */
+    }
+    .findings-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .findings-header h2 { font-size: 0.88rem; }
+    .findings-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+    .table-wrap { overflow-y: auto; overflow-x: auto; flex: 1; min-height: 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+    th {
+      background: var(--bg); color: var(--muted); text-align: left;
+      padding: 0.45rem 0.65rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.04em; font-size: 0.65rem; position: sticky; top: 0; z-index: 1;
+    }
+    td { padding: 0.5rem 0.65rem; border-top: 1px solid var(--border); vertical-align: middle; }
     tr:hover td { background: rgba(99,179,237,0.04); }
 
+    /* ── Badges ──────────────────────────────────────── */
     .badge {
-      display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px;
-      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      display: inline-block; padding: 0.15rem 0.45rem; border-radius: 999px;
+      font-size: 0.65rem; font-weight: 700; text-transform: uppercase; white-space: nowrap;
     }
-    .badge-Critical   { background: #742a2a; color: #fc8181; }
-    .badge-High       { background: #7b341e; color: #f6ad55; }
-    .badge-Medium     { background: #744210; color: #fbd38d; }
+    .badge-Critical   { background: #742a2a; color: var(--red); }
+    .badge-High       { background: #7b341e; color: var(--orange); }
+    .badge-Medium     { background: #744210; color: var(--yellow); }
     .badge-Low        { background: #1a365d; color: #90cdf4; }
     .badge-pending    { background: #2d3748; color: #a0aec0; }
-    .badge-remediated { background: #1c4532; color: #68d391; }
-    .badge-failed     { background: #742a2a; color: #fc8181; }
+    .badge-remediated { background: #1c4532; color: var(--green); }
+    .badge-failed     { background: #742a2a; color: var(--red); }
 
-    .cli-wrap { display: flex; align-items: center; gap: 0.4rem; }
+    /* ── CLI cell ────────────────────────────────────── */
+    .cli-wrap { display: flex; align-items: center; gap: 0.3rem; }
     .cli-code {
-      font-family: monospace; font-size: 0.72rem; color: #9ae6b4;
-      background: #0f1117; padding: 0.25rem 0.5rem; border-radius: 4px;
-      max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-family: monospace; font-size: 0.68rem; color: #9ae6b4;
+      background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 0.25rem;
+      max-width: 13rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       display: inline-block;
     }
     .copy-btn {
-      background: none; border: none; cursor: pointer; color: #718096;
-      font-size: 0.75rem; padding: 0; flex-shrink: 0;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 0.7rem; padding: 0; flex-shrink: 0;
     }
-    .copy-btn:hover { color: #63b3ed; }
+    .copy-btn:hover { color: var(--accent); }
 
-    .footer { margin-top: 2rem; text-align: center; }
-    .btn-clear { background: #742a2a; color: #fc8181; border: 1px solid #c53030; }
-    #clear-status { font-size: 0.8rem; color: #a0aec0; margin-top: 0.5rem; }
+    /* ── Footer (inside main) ────────────────────────── */
+    .main-footer {
+      display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem;
+      flex-shrink: 0; padding: 0 0.1rem;
+    }
+    #clear-status { font-size: 0.75rem; color: var(--muted); }
 
-    .empty-state { text-align: center; color: #4a5568; padding: 2rem; }
+    .empty-state { text-align: center; color: #4a5568; padding: 1.5rem; }
+
+    /* ── Responsive: 768px – 1279px (tablet) ─────────── */
+    @media (max-width: 1279px) {
+      #main-app.visible {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "header"
+          "main";
+        height: auto; overflow: visible;
+      }
+      #sidebar { display: none; }
+      #main-content { overflow-y: auto; }
+      .cards { grid-template-columns: repeat(2, 1fr); }
+      .charts { grid-template-columns: 1fr; }
+      .findings-section { height: auto; }
+      .table-wrap { max-height: 17.5rem; }
+    }
+
+    /* ── Responsive: < 768px (mobile) ───────────────── */
+    @media (max-width: 767px) {
+      .cards { grid-template-columns: 1fr; }
+      .upload-row { flex-direction: column; align-items: stretch; }
+      .findings-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    }
   </style>
 </head>
 <body>
 
-<!-- ═══════════ LOADING OVERLAY ═══════════ -->
+<!-- ══════════════ LOADING OVERLAY ══════════════ -->
 <div id="loading-overlay">
   <div class="spinner"></div>
-  <div class="spinner-label" id="spinner-label">Loading dashboard…</div>
+  <div id="spinner-label">Loading…</div>
 </div>
 
-<!-- ═══════════ AUTH OVERLAY ═══════════ -->
+<!-- ══════════════ AUTH OVERLAY ══════════════ -->
 <div id="auth-overlay">
   <div class="auth-card">
     <h1>☁️ Cloud Cost Optimizer</h1>
     <p>Sign in to manage your AWS spending</p>
 
-    <!-- Login Form -->
+    <!-- Login form -->
     <div id="login-form">
       <div class="form-group">
         <label>Username</label>
@@ -189,10 +369,10 @@
       </div>
       <div class="auth-error-msg" id="login-error"></div>
       <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Login</button>
-      <div class="auth-toggle">Don't have an account? <span onclick="showRegister()">Register</span></div>
+      <div class="auth-toggle">No account? <span onclick="showRegister()">Register</span></div>
     </div>
 
-    <!-- Register Form -->
+    <!-- Register form -->
     <div id="register-form" style="display:none">
       <div class="form-group">
         <label>Username</label>
@@ -206,26 +386,71 @@
         <label>Password</label>
         <input type="password" id="reg-password" placeholder="••••••••" />
       </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="reg-role">
+          <option value="Viewer" selected>Viewer</option>
+          <option value="Admin">Admin</option>
+        </select>
+      </div>
+      <div class="auth-note" id="first-user-note">
+        ℹ️ The first registered user is automatically assigned <strong>Admin</strong> role regardless of selection.
+      </div>
       <div class="auth-error-msg" id="register-error"></div>
       <button class="btn btn-primary" id="register-btn" onclick="doRegister()">Create Account</button>
-      <div class="auth-toggle">Already have an account? <span onclick="showLogin()">Login</span></div>
+      <div class="auth-toggle">Have an account? <span onclick="showLogin()">Login</span></div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ MAIN APP ═══════════ -->
+<!-- ══════════════ MAIN APP ══════════════ -->
 <div id="main-app">
-  <header>
+
+  <!-- Header -->
+  <header id="app-header">
     <h1>☁️ Cloud Cost Optimizer</h1>
     <div class="header-right">
       <span id="user-label"></span>
+      <span class="role-badge" id="role-badge"></span>
       <button class="btn btn-sm btn-danger" onclick="logout()">Logout</button>
     </div>
   </header>
 
-  <div class="container">
+  <!-- Sidebar -->
+  <nav id="sidebar">
 
-    <!-- Error Banner -->
+    <!-- Viewer banner -->
+    <div class="sidebar-section">
+      <div id="viewer-banner">
+        🔒 You have <strong>Viewer</strong> access.<br>
+        Contact your Admin to perform remediation actions.
+      </div>
+    </div>
+
+    <!-- Users management (admin only) -->
+    <div class="sidebar-section" id="users-section">
+      <div class="sidebar-label">👥 Registered Users</div>
+      <div id="users-list">
+        <div style="font-size:0.74rem;color:var(--muted)">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Quick stats (always visible) -->
+    <div class="sidebar-section" style="margin-top:auto">
+      <div class="sidebar-label">⚡ Quick Stats</div>
+      <div style="font-size:0.75rem;color:#a0aec0;line-height:1.8">
+        <div>Findings: <strong id="sb-findings">—</strong></div>
+        <div>Critical:  <strong id="sb-critical" style="color:var(--red)">—</strong></div>
+        <div>Waste/mo:  <strong id="sb-waste" style="color:var(--accent)">—</strong></div>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- Main content -->
+  <main id="main-content">
+
+    <!-- Error banner -->
     <div id="error-banner">
       <span id="error-banner-msg"></span>
       <button onclick="hideBanner()">✕</button>
@@ -234,18 +459,18 @@
     <!-- Upload -->
     <div class="upload-section">
       <h2>📂 Upload AWS Billing Export</h2>
-      <div class="drop-zone" id="drop-zone">
-        <input type="file" id="csv-input" accept=".csv" onchange="onFileSelected(this)" />
-        <p>Drag & drop a <strong>.csv</strong> file here, or click to browse</p>
-        <div class="file-name" id="file-name-label"></div>
-      </div>
-      <div class="upload-controls">
-        <button class="btn btn-primary" onclick="uploadCSV()" style="width:auto" id="ingest-btn">Ingest</button>
+      <div class="upload-row">
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="csv-input" accept=".csv" onchange="onFileSelected(this)" />
+          <span class="file-hint">Drag &amp; drop <strong>.csv</strong> or click to browse</span>
+          <span class="file-chosen" id="file-name-label"></span>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="uploadCSV()" id="ingest-btn" style="width:auto">Ingest</button>
         <span id="upload-status"></span>
       </div>
     </div>
 
-    <!-- Summary Cards -->
+    <!-- Cards -->
     <div class="cards">
       <div class="card">
         <div class="card-label">Total Monthly Waste</div>
@@ -259,7 +484,7 @@
       </div>
       <div class="card">
         <div class="card-label">Most Wasteful Type</div>
-        <div class="card-value" style="font-size:1.2rem;padding-top:0.4rem" id="card-top-type">—</div>
+        <div class="card-value" id="card-top-type" style="font-size:1rem;padding-top:0.3rem">—</div>
         <div class="card-sub" id="card-top-type-sub"></div>
       </div>
       <div class="card">
@@ -273,19 +498,27 @@
     <div class="charts">
       <div class="chart-box">
         <h3>Waste by Resource Type (USD/month)</h3>
-        <canvas id="bar-chart"></canvas>
+        <div class="chart-inner"><canvas id="bar-chart"></canvas></div>
       </div>
       <div class="chart-box">
         <h3>Findings by Severity</h3>
-        <canvas id="doughnut-chart"></canvas>
+        <div class="chart-inner"><canvas id="doughnut-chart"></canvas></div>
       </div>
     </div>
 
-    <!-- Findings Table -->
-    <div class="table-section">
-      <h2>🔍 Findings</h2>
+    <!-- Findings -->
+    <div class="findings-section">
+      <div class="findings-header">
+        <h2>🔍 Findings</h2>
+        <div class="findings-actions">
+          <!-- Admin only -->
+          <button class="btn btn-warn btn-sm admin-only" id="bulk-btn" onclick="bulkRemediate()" style="display:none">
+            ⚡ Bulk Remediate All Pending
+          </button>
+        </div>
+      </div>
       <div class="table-wrap">
-        <table id="findings-table">
+        <table>
           <thead>
             <tr>
               <th>#</th>
@@ -294,43 +527,52 @@
               <th>Type</th>
               <th>Region</th>
               <th>Severity</th>
-              <th>Waste (USD)</th>
+              <th>Waste/mo</th>
               <th>Status</th>
               <th>CLI Command</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody id="findings-body">
-            <tr><td colspan="10" class="empty-state">Loading findings…</td></tr>
+            <tr><td colspan="10" class="empty-state">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
     <!-- Footer -->
-    <div class="footer">
-      <button class="btn btn-clear" onclick="clearAllData()">🗑 Clear All Data</button>
-      <div id="clear-status"></div>
+    <div class="main-footer">
+      <span id="clear-status"></span>
+      <!-- Admin only -->
+      <button class="btn btn-sm btn-danger admin-only" id="clear-btn" onclick="clearAllData()" style="display:none">
+        🗑 Clear All Data
+      </button>
     </div>
 
-  </div>
-</div>
+  </main>
+</div><!-- #main-app -->
 
 <script>
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
 // State
-// ─────────────────────────────────────────────────────────
-let JWT = null;
-let barChart = null;
-let doughnutChart = null;
+// ─────────────────────────────────────────────
+let JWT          = null;
+let currentRole  = null;   // 'Admin' | 'Viewer'
+let currentUser  = null;   // { id, username, email }
+let barChart     = null;
+let doughnutChart= null;
 let selectedFile = null;
+const cliStore   = {};     // findingId → cli command string
+const userStore  = [];     // registered users in this session (sidebar)
 
-// Indexed store for CLI commands (avoids inline onclick escaping issues)
-const cliStore = {};
-
-// ─────────────────────────────────────────────────────────
-// Utility: loading spinner
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Utility
+// ─────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 function showSpinner(label) {
   document.getElementById('spinner-label').textContent = label || 'Loading…';
   document.getElementById('loading-overlay').classList.add('active');
@@ -338,158 +580,200 @@ function showSpinner(label) {
 function hideSpinner() {
   document.getElementById('loading-overlay').classList.remove('active');
 }
-
-// ─────────────────────────────────────────────────────────
-// Utility: error banner
-// ─────────────────────────────────────────────────────────
 function showBanner(msg) {
-  console.error('[Dashboard error]', msg);
+  console.error('[Error]', msg);
   document.getElementById('error-banner-msg').textContent = msg;
   document.getElementById('error-banner').classList.add('active');
 }
 function hideBanner() {
   document.getElementById('error-banner').classList.remove('active');
 }
+function setLoginError(m)    { document.getElementById('login-error').textContent    = m; }
+function setRegisterError(m) { document.getElementById('register-error').textContent = m; }
 
-// ─────────────────────────────────────────────────────────
-// Auth helpers
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Auth toggle
+// ─────────────────────────────────────────────
 function showLogin() {
-  document.getElementById('login-form').style.display = '';
+  document.getElementById('login-form').style.display    = '';
   document.getElementById('register-form').style.display = 'none';
-  document.getElementById('login-error').textContent = '';
-  document.getElementById('register-error').textContent = '';
+  setLoginError(''); setRegisterError('');
 }
-
 function showRegister() {
-  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('login-form').style.display    = 'none';
   document.getElementById('register-form').style.display = '';
-  document.getElementById('login-error').textContent = '';
-  document.getElementById('register-error').textContent = '';
+  setLoginError(''); setRegisterError('');
 }
 
-function setLoginError(msg)    { document.getElementById('login-error').textContent = msg; }
-function setRegisterError(msg) { document.getElementById('register-error').textContent = msg; }
+// ─────────────────────────────────────────────
+// Register
+// ─────────────────────────────────────────────
+async function doRegister() {
+  const username  = document.getElementById('reg-username').value.trim();
+  const email     = document.getElementById('reg-email').value.trim();
+  const password  = document.getElementById('reg-password').value;
+  const role      = document.getElementById('reg-role').value;
+  if (!username || !email || !password) { setRegisterError('Please fill in all fields.'); return; }
 
+  const btn = document.getElementById('register-btn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  setRegisterError('');
+
+  try {
+    // Send role — backend ignores unknown fields (Pydantic default), so no breakage
+    const res  = await fetch('/auth/register', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ username, email, password, role })
+    });
+    const data = await res.json();
+    if (!res.ok) { setRegisterError(data.detail || 'Registration failed.'); btn.disabled=false; btn.textContent='Create Account'; return; }
+
+    // Track for sidebar (session only)
+    userStore.push({ username, email, requestedRole: role });
+
+    // Auto-login to discover actual user ID → determine real role
+    document.getElementById('login-username').value = username;
+    document.getElementById('login-password').value = password;
+    showLogin();
+    setLoginError('✅ Account created! Determining your role…');
+    setTimeout(doLogin, 400);
+  } catch(e) {
+    setRegisterError('Network error.'); btn.disabled=false; btn.textContent='Create Account';
+  }
+}
+
+// ─────────────────────────────────────────────
+// Login
+// ─────────────────────────────────────────────
 async function doLogin() {
   const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
   if (!username || !password) { setLoginError('Please fill in all fields.'); return; }
 
   const btn = document.getElementById('login-btn');
-  btn.disabled = true;
-  btn.textContent = 'Signing in…';
+  btn.disabled = true; btn.textContent = 'Signing in…';
   setLoginError('');
 
   try {
-    console.log('[Auth] POST /auth/login for user:', username);
-    const res = await fetch('/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    console.log('[Auth] POST /auth/login →', username);
+    const res  = await fetch('/auth/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ username, password })
     });
     const data = await res.json();
-    console.log('[Auth] Login response:', res.status, data);
+    console.log('[Auth] Status:', res.status);
 
     if (!res.ok) {
-      setLoginError(data.detail || 'Login failed. Check username and password.');
-      btn.disabled = false;
-      btn.textContent = 'Login';
-      return;
+      setLoginError(data.detail || 'Invalid username or password.');
+      btn.disabled=false; btn.textContent='Login'; return;
     }
 
-    // ── BUG FIX: store token and show main app ─────────────────
     JWT = data.access_token;
-    console.log('[Auth] JWT stored. Token prefix:', JWT.substring(0, 20) + '…');
+    console.log('[Auth] JWT stored. Fetching /auth/me…');
 
+    // Fetch user info to determine role by user ID
+    const meRes  = await fetch('/auth/me', { headers: { 'Authorization': `Bearer ${JWT}` } });
+    const meData = await meRes.json();
+    currentUser  = meData;
+    console.log('[Auth] /auth/me →', meData);
+
+    // Role rule: user_id === 1 → Admin; all others → Viewer
+    // (First-registered user is always Admin — enforced client-side without backend changes)
+    currentRole = (meData.id === 1) ? 'Admin' : 'Viewer';
+    console.log('[Auth] Assigned role:', currentRole);
+
+    // Show app
     document.getElementById('user-label').textContent = `👤 ${username}`;
+    document.getElementById('role-badge').textContent  = currentRole;
+    document.getElementById('role-badge').className    = `role-badge role-${currentRole.toLowerCase()}`;
 
-    // Hide overlay using class — avoids style.display='' reverting to CSS display:none
     document.getElementById('auth-overlay').classList.add('hidden');
-
-    // Show main app using class — explicit, never fights CSS
     document.getElementById('main-app').classList.add('visible');
 
-    console.log('[Dashboard] Main app revealed. Fetching data…');
+    applyRoleUI();
     await refreshAll();
 
-  } catch (err) {
-    console.error('[Auth] Login fetch error:', err);
+  } catch(e) {
+    console.error('[Auth] Error:', e);
     setLoginError('Network error — is the server running?');
-    btn.disabled = false;
-    btn.textContent = 'Login';
+    btn.disabled=false; btn.textContent='Login';
   }
 }
 
-async function doRegister() {
-  const username = document.getElementById('reg-username').value.trim();
-  const email    = document.getElementById('reg-email').value.trim();
-  const password = document.getElementById('reg-password').value;
-  if (!username || !email || !password) { setRegisterError('Please fill in all fields.'); return; }
+// ─────────────────────────────────────────────
+// Role-based UI application
+// ─────────────────────────────────────────────
+function applyRoleUI() {
+  const isAdmin = currentRole === 'Admin';
+  console.log('[RBAC] Applying UI for role:', currentRole);
 
-  const btn = document.getElementById('register-btn');
-  btn.disabled = true;
-  btn.textContent = 'Creating account…';
-  setRegisterError('');
+  // Admin-only elements
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = isAdmin ? '' : 'none';
+  });
 
-  try {
-    const res = await fetch('/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password })
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setRegisterError(data.detail || 'Registration failed.');
-      btn.disabled = false;
-      btn.textContent = 'Create Account';
-      return;
-    }
-    // Auto-login after register
-    document.getElementById('login-username').value = username;
-    document.getElementById('login-password').value = password;
-    showLogin();
-    setLoginError('✅ Account created! Logging you in…');
-    setTimeout(doLogin, 500);
-  } catch (err) {
-    setRegisterError('Network error.');
-    btn.disabled = false;
-    btn.textContent = 'Create Account';
-  }
+  // Viewer banner
+  document.getElementById('viewer-banner').style.display  = isAdmin ? 'none' : '';
+  // Users section (admin)
+  document.getElementById('users-section').style.display  = isAdmin ? '' : 'none';
+
+  // Refresh sidebar user list (admin)
+  if (isAdmin) renderSidebarUsers();
 }
 
+// ─────────────────────────────────────────────
+// Sidebar users list (admin, session-tracked)
+// ─────────────────────────────────────────────
+function renderSidebarUsers() {
+  const container = document.getElementById('users-list');
+  // Always show at least the current user
+  const all = userStore.length > 0 ? userStore : [{ username: currentUser.username, email: currentUser.email, requestedRole: 'Admin' }];
+  container.innerHTML = all.map((u, i) => {
+    const assignedRole = i === 0 ? 'Admin' : u.requestedRole;
+    const roleClass    = assignedRole === 'Admin' ? 'role-admin' : 'role-viewer';
+    return `<div class="sidebar-user-row">
+      <div class="u-avatar">${escHtml(u.username[0].toUpperCase())}</div>
+      <div>
+        <div class="u-name">${escHtml(u.username)}</div>
+        <div class="u-email">${escHtml(u.email)}</div>
+      </div>
+      <span class="role-badge ${roleClass}" style="font-size:0.6rem">${assignedRole}</span>
+    </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────
+// Logout
+// ─────────────────────────────────────────────
 function logout() {
-  JWT = null;
+  JWT = null; currentRole = null; currentUser = null;
+  barChart && barChart.destroy(); barChart = null;
+  doughnutChart && doughnutChart.destroy(); doughnutChart = null;
+  Object.keys(cliStore).forEach(k => delete cliStore[k]);
   document.getElementById('auth-overlay').classList.remove('hidden');
   document.getElementById('main-app').classList.remove('visible');
   document.getElementById('login-username').value = '';
   document.getElementById('login-password').value = '';
   document.getElementById('login-btn').disabled = false;
   document.getElementById('login-btn').textContent = 'Login';
-  setLoginError('');
-  hideBanner();
+  setLoginError(''); hideBanner();
 }
 
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
 // Upload
-// ─────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', function () {
-  const dropZone = document.getElementById('drop-zone');
-  if (dropZone) {
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    dropZone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      const f = e.dataTransfer.files[0];
-      if (f && f.name.endsWith('.csv')) {
-        selectedFile = f;
-        document.getElementById('file-name-label').textContent = f.name;
-      } else {
-        setUploadStatus('Only .csv files are accepted.', 'err');
-      }
-    });
-  }
+// ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const dz = document.getElementById('drop-zone');
+  if (!dz) return;
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith('.csv')) {
+      selectedFile = f; document.getElementById('file-name-label').textContent = f.name;
+    } else { setUploadStatus('Only .csv files accepted.', 'err'); }
+  });
 });
 
 function onFileSelected(input) {
@@ -504,152 +788,107 @@ function setUploadStatus(msg, type) {
 }
 
 async function uploadCSV() {
-  if (!selectedFile) { setUploadStatus('Please select a CSV file first.', 'err'); return; }
-
+  if (!selectedFile) { setUploadStatus('Select a CSV file first.', 'err'); return; }
   const btn = document.getElementById('ingest-btn');
-  btn.disabled = true;
-  setUploadStatus('Uploading…', 'info');
-
+  btn.disabled = true; setUploadStatus('Uploading…', 'info');
   const form = new FormData();
   form.append('file', selectedFile);
-
   try {
-    console.log('[Ingest] POST /ingest with file:', selectedFile.name);
-    const res = await fetch('/ingest', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${JWT}` },
-      body: form
+    console.log('[Ingest] POST /ingest →', selectedFile.name);
+    const res  = await fetch('/ingest', {
+      method:'POST', headers:{'Authorization':`Bearer ${JWT}`}, body: form
     });
     const data = await res.json();
-    console.log('[Ingest] Response:', res.status, data);
-
-    if (!res.ok) {
-      setUploadStatus(`Error: ${data.detail || 'Upload failed.'}`, 'err');
-      btn.disabled = false;
-      return;
-    }
-
-    setUploadStatus(
-      `✅ ${data.resources_ingested} resources ingested · ${data.findings_detected} findings detected`,
-      'ok'
-    );
+    console.log('[Ingest]', res.status, data);
+    if (!res.ok) { setUploadStatus(`Error: ${data.detail||'Upload failed.'}`, 'err'); return; }
+    setUploadStatus(`✅ ${data.resources_ingested} resources · ${data.findings_detected} findings detected`, 'ok');
     await refreshAll();
-  } catch (err) {
-    console.error('[Ingest] error:', err);
-    setUploadStatus('Network error during upload.', 'err');
-  } finally {
-    btn.disabled = false;
-  }
+  } catch(e) {
+    console.error('[Ingest]', e); setUploadStatus('Network error.', 'err');
+  } finally { btn.disabled = false; }
 }
 
-// ─────────────────────────────────────────────────────────
-// Dashboard refresh
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Refresh all
+// ─────────────────────────────────────────────
 async function refreshAll() {
-  showSpinner('Loading dashboard data…');
-  hideBanner();
+  showSpinner('Loading dashboard data…'); hideBanner();
   try {
-    console.log('[Refresh] Fetching /summary and /findings with Bearer token');
+    console.log('[Refresh] GET /summary + /findings with Bearer token');
     await Promise.all([refreshSummary(), refreshFindings()]);
-    console.log('[Refresh] Done.');
-  } catch (err) {
-    console.error('[Refresh] Unexpected error:', err);
-    showBanner('Failed to load dashboard data. ' + err.message);
-  } finally {
-    hideSpinner();
-  }
+    console.log('[Refresh] Complete.');
+  } catch(e) {
+    console.error('[Refresh]', e); showBanner('Failed to load data: ' + e.message);
+  } finally { hideSpinner(); }
 }
 
 async function refreshSummary() {
-  console.log('[Summary] GET /summary — Authorization: Bearer', JWT ? JWT.substring(0,15)+'…' : 'NULL');
-  const res = await fetch('/summary', {
-    headers: { 'Authorization': `Bearer ${JWT}` }
-  });
-  console.log('[Summary] Status:', res.status);
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`/summary returned ${res.status}: ${err.detail || res.statusText}`);
-  }
-
+  const res = await fetch('/summary', { headers: {'Authorization':`Bearer ${JWT}`} });
+  console.log('[Summary] HTTP', res.status);
+  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(`/summary ${res.status}: ${e.detail||res.statusText}`); }
   const d = await res.json();
-  console.log('[Summary] Data:', d);
+  console.log('[Summary]', d);
 
-  // Update cards
   document.getElementById('card-waste').textContent =
-    '$' + (d.total_waste_usd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  document.getElementById('card-pending').textContent = d.pending_remediations ?? '0';
+    '$' + (d.total_waste_usd||0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('card-pending').textContent  = d.pending_remediations ?? '0';
+  const totalRes = Object.values(d.findings_by_resource_type||{}).reduce((a,b)=>a+b, 0);
+  document.getElementById('card-resources').textContent = totalRes;
+  const top = (d.top_3_wasteful_resources||[])[0];
+  document.getElementById('card-top-type').textContent    = top ? top.resource_type : '—';
+  document.getElementById('card-top-type-sub').textContent= top ? `$${(top.estimated_monthly_waste_usd||0).toFixed(2)}/mo` : '';
 
-  const types = d.findings_by_resource_type || {};
-  const totalResources = Object.values(types).reduce((a, b) => a + b, 0);
-  document.getElementById('card-resources').textContent = totalResources;
+  // Sidebar quick stats
+  const bySev = d.findings_by_severity||{};
+  const total = Object.values(bySev).reduce((a,b)=>a+b,0);
+  document.getElementById('sb-findings').textContent = total;
+  document.getElementById('sb-critical').textContent = bySev.Critical||0;
+  document.getElementById('sb-waste').textContent    = '$'+(d.total_waste_usd||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 
-  const top = (d.top_3_wasteful_resources || [])[0];
-  document.getElementById('card-top-type').textContent = top ? top.resource_type : '—';
-  document.getElementById('card-top-type-sub').textContent =
-    top ? `$${(top.estimated_monthly_waste_usd || 0).toFixed(2)}/mo` : '';
-
-  // Doughnut chart
-  renderDoughnutChart(d.findings_by_severity || {});
+  renderDoughnutChart(bySev);
 }
 
 async function refreshFindings() {
-  console.log('[Findings] GET /findings — Authorization: Bearer', JWT ? JWT.substring(0,15)+'…' : 'NULL');
-  const res = await fetch('/findings', {
-    headers: { 'Authorization': `Bearer ${JWT}` }
-  });
-  console.log('[Findings] Status:', res.status);
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`/findings returned ${res.status}: ${err.detail || res.statusText}`);
-  }
-
+  const res = await fetch('/findings', { headers: {'Authorization':`Bearer ${JWT}`} });
+  console.log('[Findings] HTTP', res.status);
+  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(`/findings ${res.status}: ${e.detail||res.statusText}`); }
   const findings = await res.json();
-  console.log('[Findings] Count:', findings.length);
-
+  console.log('[Findings] count:', findings.length);
+  findings.forEach(f => { cliStore[f.id] = f.cli_command || ''; });
   renderFindingsTable(findings);
-
-  // Bar chart — waste per resource type from actual findings
   const wasteByType = {};
-  for (const f of findings) {
-    const t = (f.resource && f.resource.type) ? f.resource.type : 'Unknown';
-    wasteByType[t] = (wasteByType[t] || 0) + (f.estimated_monthly_waste_usd || 0);
-  }
+  findings.forEach(f => {
+    const t = (f.resource && f.resource.type) || 'Unknown';
+    wasteByType[t] = (wasteByType[t]||0) + (f.estimated_monthly_waste_usd||0);
+  });
   renderBarChart(Object.keys(wasteByType), Object.values(wasteByType));
 }
 
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
 // Charts
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
 function renderBarChart(labels, values) {
   const canvas = document.getElementById('bar-chart');
   if (!canvas) return;
-  const ctx = canvas.getContext('2d');
   if (barChart) { barChart.destroy(); barChart = null; }
   if (!labels.length) return;
-
-  barChart = new Chart(ctx, {
+  barChart = new Chart(canvas.getContext('2d'), {
     type: 'bar',
     data: {
       labels,
       datasets: [{
-        label: 'Monthly Waste (USD)',
+        label: 'Waste USD',
         data: values,
-        backgroundColor: ['#3182ce', '#c05621', '#6b46c1', '#276749', '#c53030'],
-        borderRadius: 6,
+        backgroundColor: ['#3182ce','#c05621','#6b46c1','#276749','#c53030'],
+        borderRadius: 4,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: true,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: '#a0aec0' }, grid: { color: '#2d3748' } },
-        y: {
-          ticks: { color: '#a0aec0', callback: v => `$${v}` },
-          grid: { color: '#2d3748' }
-        }
+        x: { ticks: { color: '#a0aec0', font:{size:10} }, grid: { color: '#2d3748' } },
+        y: { ticks: { color: '#a0aec0', font:{size:10}, callback: v=>`$${v}` }, grid: { color: '#2d3748' } }
       }
     }
   });
@@ -658,73 +897,70 @@ function renderBarChart(labels, values) {
 function renderDoughnutChart(sevData) {
   const canvas = document.getElementById('doughnut-chart');
   if (!canvas) return;
-  const ctx = canvas.getContext('2d');
   if (doughnutChart) { doughnutChart.destroy(); doughnutChart = null; }
-
-  const order  = ['Critical', 'High', 'Medium', 'Low'];
-  const colors = { Critical: '#c53030', High: '#dd6b20', Medium: '#d69e2e', Low: '#3182ce' };
-  const labels = order.filter(k => sevData[k] > 0);
+  const order  = ['Critical','High','Medium','Low'];
+  const colors = { Critical:'#c53030', High:'#dd6b20', Medium:'#d69e2e', Low:'#3182ce' };
+  const labels = order.filter(k => (sevData[k]||0) > 0);
   const values = labels.map(k => sevData[k]);
   if (!labels.length) return;
-
-  doughnutChart = new Chart(ctx, {
+  doughnutChart = new Chart(canvas.getContext('2d'), {
     type: 'doughnut',
     data: {
       labels,
-      datasets: [{
-        data: values,
-        backgroundColor: labels.map(l => colors[l]),
-        borderWidth: 2,
-        borderColor: '#1a1f2e'
-      }]
+      datasets: [{ data: values, backgroundColor: labels.map(l=>colors[l]), borderWidth: 2, borderColor: '#1a1f2e' }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: true,
+      responsive: true, maintainAspectRatio: false,
       plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { color: '#a0aec0', padding: 16, font: { size: 12 } }
-        }
+        legend: { position: 'bottom', labels: { color: '#a0aec0', padding: 10, font:{size:11} } }
       }
     }
   });
 }
 
-// ─────────────────────────────────────────────────────────
-// Findings table — CLI stored in cliStore, not inline onclick
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Findings table — role-aware
+// ─────────────────────────────────────────────
 function renderFindingsTable(findings) {
-  const tbody = document.getElementById('findings-body');
+  const tbody  = document.getElementById('findings-body');
+  const isAdmin = currentRole === 'Admin';
+
   if (!findings.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No findings yet. Upload a billing CSV to get started.</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">No findings yet. Upload a billing CSV to get started.</td></tr>`;
     return;
   }
 
-  // Store CLI commands safely by finding ID
-  findings.forEach(f => { cliStore[f.id] = f.cli_command || ''; });
-
   tbody.innerHTML = findings.map(f => {
-    const r   = f.resource || {};
-    const cli = f.cli_command || '';
-    const short = cli.length > 42 ? cli.slice(0, 42) + '…' : cli;
-    const actionCell = f.status === 'pending'
-      ? `<button class="btn btn-sm btn-success" id="rem-btn-${f.id}" onclick="remediateOne(${f.id})">Remediate</button>`
-      : `<span style="color:#4a5568;font-size:0.78rem">${f.status}</span>`;
+    const r    = f.resource || {};
+    const cli  = f.cli_command || '';
+    const short= cli.length > 38 ? cli.slice(0,38)+'…' : cli;
+
+    // Action cell: Admin → Remediate button; Viewer → copy CLI only
+    let actionCell;
+    if (isAdmin) {
+      actionCell = f.status === 'pending'
+        ? `<button class="btn btn-xs btn-success" id="rem-btn-${f.id}" onclick="remediateOne(${f.id})">Remediate</button>`
+        : `<span style="color:#4a5568;font-size:0.72rem">${f.status}</span>`;
+    } else {
+      // Viewer: only CLI copy, no remediate
+      actionCell = cli
+        ? `<button class="btn btn-xs btn-ghost" onclick="copyCmd(${f.id}, this)">📋 Copy CLI</button>`
+        : '—';
+    }
 
     return `<tr id="row-${f.id}">
       <td>${f.id}</td>
-      <td><code style="font-size:0.75rem;color:#9ae6b4">${escHtml(r.id || '—')}</code></td>
-      <td>${escHtml(r.name || '—')}</td>
-      <td>${escHtml(r.type || '—')}</td>
-      <td>${escHtml(r.region || '—')}</td>
+      <td><code style="font-size:0.68rem;color:#9ae6b4">${escHtml(r.id||'—')}</code></td>
+      <td style="max-width:8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(r.name||'—')}</td>
+      <td>${escHtml(r.type||'—')}</td>
+      <td>${escHtml(r.region||'—')}</td>
       <td><span class="badge badge-${f.severity}">${f.severity}</span></td>
-      <td>$${(f.estimated_monthly_waste_usd || 0).toFixed(2)}</td>
+      <td>$${(f.estimated_monthly_waste_usd||0).toFixed(2)}</td>
       <td><span class="badge badge-${f.status}" id="status-badge-${f.id}">${f.status}</span></td>
       <td>
         <div class="cli-wrap">
-          <span class="cli-code" title="${escHtml(cli)}">${escHtml(short) || '—'}</span>
-          ${cli ? `<button class="copy-btn" onclick="copyCmd(${f.id}, this)" title="Copy to clipboard">📋</button>` : ''}
+          <span class="cli-code" title="${escHtml(cli)}">${escHtml(short)||'—'}</span>
+          ${cli ? `<button class="copy-btn" onclick="copyCmd(${f.id}, this)" title="Copy">📋</button>` : ''}
         </div>
       </td>
       <td>${actionCell}</td>
@@ -732,88 +968,85 @@ function renderFindingsTable(findings) {
   }).join('');
 }
 
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-// ─────────────────────────────────────────────────────────
-// Copy CLI command (safe — reads from cliStore, not DOM)
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Copy CLI (safe — reads from cliStore)
+// ─────────────────────────────────────────────
 function copyCmd(findingId, btn) {
   const text = cliStore[findingId] || '';
   if (!text) return;
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent;
-    btn.textContent = '✅';
-    setTimeout(() => { btn.textContent = orig; }, 1400);
-  }).catch(() => {
-    // Fallback for browsers that block clipboard without HTTPS
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    btn.textContent = '✅';
-    setTimeout(() => { btn.textContent = '📋'; }, 1400);
-  });
+  const orig = btn.textContent;
+  const done = () => { btn.textContent = '✅'; setTimeout(()=>{ btn.textContent = orig; }, 1400); };
+  navigator.clipboard ? navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, btn, orig))
+                      : fallbackCopy(text, btn, orig);
+}
+function fallbackCopy(text, btn, orig) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+  btn.textContent = '✅'; setTimeout(()=>{ btn.textContent = orig; }, 1400);
 }
 
-// ─────────────────────────────────────────────────────────
-// Remediation
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Remediate one (admin only)
+// ─────────────────────────────────────────────
 async function remediateOne(findingId) {
   const btn   = document.getElementById(`rem-btn-${findingId}`);
   const badge = document.getElementById(`status-badge-${findingId}`);
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
-
   try {
-    console.log('[Remediate] POST /remediate/' + findingId);
     const res  = await fetch(`/remediate/${findingId}`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${JWT}` }
+      method:'POST', headers:{'Authorization':`Bearer ${JWT}`}
     });
     const data = await res.json();
-    console.log('[Remediate] Response:', data);
-
     if (data.success) {
       if (badge) { badge.className = 'badge badge-remediated'; badge.textContent = 'remediated'; }
-      if (btn)   { btn.parentElement.innerHTML = '<span style="color:#4a5568;font-size:0.78rem">remediated</span>'; }
+      if (btn)   btn.parentElement.innerHTML = '<span style="color:#4a5568;font-size:0.72rem">remediated</span>';
       await refreshSummary();
     } else {
       if (badge) { badge.className = 'badge badge-failed'; badge.textContent = 'failed'; }
       if (btn)   { btn.disabled = false; btn.textContent = 'Retry'; }
       const cli = data.cli_alternative || cliStore[findingId] || '';
-      if (cli) {
-        showBanner(`AWS credentials not configured. Run instead: ${cli}`);
-      } else {
-        showBanner(data.message || 'Remediation failed.');
-      }
+      showBanner(cli ? `No AWS credentials. Run: ${cli}` : (data.message||'Remediation failed.'));
     }
-  } catch (err) {
-    console.error('[Remediate] error:', err);
+  } catch(e) {
     if (btn) { btn.disabled = false; btn.textContent = 'Error'; }
-    showBanner('Remediation request failed: ' + err.message);
+    showBanner('Remediation error: ' + e.message);
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// Clear data
-// ─────────────────────────────────────────────────────────
-async function clearAllData() {
-  if (!confirm('Clear ALL resources, findings, and commands? This cannot be undone.')) return;
+// ─────────────────────────────────────────────
+// Bulk remediate (admin only)
+// ─────────────────────────────────────────────
+async function bulkRemediate() {
+  const pendingIds = [];
+  document.querySelectorAll('[id^="rem-btn-"]').forEach(btn => {
+    if (!btn.disabled) pendingIds.push(parseInt(btn.id.replace('rem-btn-','')));
+  });
+  if (!pendingIds.length) { showBanner('No pending findings to remediate.'); return; }
+  if (!confirm(`Bulk remediate ${pendingIds.length} pending findings?`)) return;
+
+  showSpinner(`Remediating ${pendingIds.length} findings…`);
   try {
-    const res  = await fetch('/data', {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${JWT}` }
+    const res  = await fetch('/remediate/bulk', {
+      method:'POST', headers:{'Authorization':`Bearer ${JWT}`,'Content-Type':'application/json'},
+      body: JSON.stringify({ finding_ids: pendingIds })
     });
+    const data = await res.json();
+    const msg  = `Bulk complete: ${data.succeeded} succeeded, ${data.failed} failed.`;
+    document.getElementById('clear-status').textContent = msg;
+    await refreshAll();
+  } catch(e) {
+    showBanner('Bulk remediation error: ' + e.message);
+  } finally { hideSpinner(); }
+}
+
+// ─────────────────────────────────────────────
+// Clear all data (admin only)
+// ─────────────────────────────────────────────
+async function clearAllData() {
+  if (!confirm('Clear ALL resources, findings, and commands? Cannot be undone.')) return;
+  try {
+    const res  = await fetch('/data', { method:'DELETE', headers:{'Authorization':`Bearer ${JWT}`} });
     const data = await res.json();
     document.getElementById('clear-status').textContent = data.message || 'Cleared.';
     selectedFile = null;
@@ -822,23 +1055,16 @@ async function clearAllData() {
     setUploadStatus('', '');
     Object.keys(cliStore).forEach(k => delete cliStore[k]);
     await refreshAll();
-  } catch (err) {
-    document.getElementById('clear-status').textContent = 'Error clearing data: ' + err.message;
-  }
+  } catch(e) { document.getElementById('clear-status').textContent = 'Error: ' + e.message; }
 }
 
-// ─────────────────────────────────────────────────────────
-// Enter-key shortcut on auth forms
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Enter key on auth forms
+// ─────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  const overlay = document.getElementById('auth-overlay');
-  if (overlay.classList.contains('hidden')) return;
-  if (document.getElementById('register-form').style.display === 'none') {
-    doLogin();
-  } else {
-    doRegister();
-  }
+  if (document.getElementById('auth-overlay').classList.contains('hidden')) return;
+  document.getElementById('register-form').style.display === 'none' ? doLogin() : doRegister();
 });
 </script>
 </body>

@@ -19,6 +19,14 @@
 
 ---
 
+## Turn 7
+**Prompt:**
+> 3 dashboard changes: (1) Role dropdown on register (Admin/Viewer, Viewer default, first user always Admin); (2) Role-based UI (Admin sees Remediate/Bulk/Clear/Users, Viewer sees Copy CLI + grey banner); (3) Fully responsive layout (CSS Grid, sidebar 240px, 4-col→2-col→1-col cards, 50/50→stacked charts, findings fixed 280px, no page scroll at 1280px+). Only index.html — no Python files.
+
+**Action:** Full rewrite of index.html only. 37/38 checks passed (1 false negative in test — sidebar collapse fires at ≤1279px which is correct). 17/17 pytest tests still passing.
+
+---
+
 ## Turn 6
 **Prompt:**
 > After login, blank screen instead of dashboard. Fix: JS errors, JWT storage, dashboard render call, API calls with Bearer token, loading spinner, error messages on failure.
