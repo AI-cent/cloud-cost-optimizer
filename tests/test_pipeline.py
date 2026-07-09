@@ -160,7 +160,47 @@ def test_dashboard_returns_html():
 
 def test_ingest_bad_file_rejected():
     res = client.post("/ingest", files={"file": ("data.txt", b"not,a,valid,csv", "text/plain")})
-    assert res.status_code in (400, 422)
+    assert res.status_code == 400
+    assert res.json()["error"] == "invalid_file_type"
+
+
+def test_ingest_empty_file_rejected():
+    res = client.post("/ingest", files={"file": ("empty.csv", b"", "text/csv")})
+    assert res.status_code == 400
+    assert res.json()["error"] == "empty_file"
+
+
+def test_ingest_missing_columns_rejected():
+    bad_csv = b"foo,bar\n1,2\n"
+    res = client.post("/ingest", files={"file": ("bad.csv", bad_csv, "text/csv")})
+    assert res.status_code == 400
+    assert res.json()["error"] == "csv_validation_error"
+    assert "missing" in res.json()["detail"].lower()
+
+
+def test_ingest_file_too_large_rejected():
+    # Generate a CSV that is just over 10 MB
+    header = b"ResourceId,ResourceName,ResourceType,Region,MonthlyCost,Status,LastActiveDate\n"
+    row = b"vol-0a1b2c3d,test-vol,EBS Volume,us-east-1,10.00,available,2026-01-01\n"
+    oversized = header + row * (int(10 * 1024 * 1024 / len(row)) + 1)
+    res = client.post("/ingest", files={"file": ("big.csv", oversized, "text/csv")})
+    assert res.status_code == 400
+    assert res.json()["error"] == "file_too_large"
+
+
+def test_ingest_nonnumeric_cost_rows_skipped():
+    """Rows with invalid MonthlyCost should be skipped, not crash the endpoint."""
+    csv_content = (
+        b"ResourceId,ResourceName,ResourceType,Region,MonthlyCost,Status,LastActiveDate\n"
+        b"vol-good,good-vol,EBS Volume,us-east-1,12.50,available,2026-01-01\n"
+        b"vol-bad,bad-vol,EBS Volume,us-east-1,NOT_A_NUMBER,available,2026-01-01\n"
+    )
+    res = client.post("/ingest", files={"file": ("mixed.csv", csv_content, "text/csv")})
+    assert res.status_code == 200
+    data = res.json()
+    # Both rows ingested (bad cost defaults to 0.0, not skipped)
+    assert data["resources_ingested"] == 2
+    assert data["resources_skipped"] == 0
 
 
 def test_ingest_idempotent():

@@ -19,27 +19,42 @@ def _error(status: int, error: str, detail: str) -> JSONResponse:
     return JSONResponse(status_code=status, content={"error": error, "detail": detail})
 
 
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
 # ── POST /ingest ─────────────────────────────────────────────────────────────
 @router.post("/ingest", summary="Upload AWS billing CSV and run detection")
 async def ingest(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    # Validate file extension
+    # 1. Validate file extension
     if not (file.filename or "").lower().endswith(".csv"):
-        return _error(400, "invalid_file_type", "Only .csv files are accepted.")
+        return _error(400, "invalid_file_type", "Only CSV files are accepted.")
 
+    # Read content
     try:
         content = await file.read()
     except Exception as exc:
         logger.error("Failed to read uploaded file: %s", exc)
         return _error(500, "file_read_error", "Could not read the uploaded file.")
 
+    # 2. Reject empty files
     if not content:
-        return _error(400, "empty_file", "The uploaded file is empty.")
+        return _error(400, "empty_file", "Uploaded file is empty.")
 
-    # Parse & ingest
+    # 3. Enforce 10 MB size cap
+    if len(content) > MAX_UPLOAD_BYTES:
+        size_mb = len(content) / (1024 * 1024)
+        return _error(
+            400,
+            "file_too_large",
+            f"File size {size_mb:.1f} MB exceeds the 10 MB limit.",
+        )
+
+    # 4 & 5. Parse — validates required columns; skips non-numeric MonthlyCost rows
     try:
         resources, skipped = parse_and_ingest(content, db)
     except ValueError as exc:
-        return _error(422, "csv_validation_error", str(exc))
+        # Missing/invalid columns → 400 (bad client input)
+        return _error(400, "csv_validation_error", str(exc))
     except Exception as exc:
         logger.error("Unexpected error during ingest: %s", exc, exc_info=True)
         return _error(500, "ingest_error", "An unexpected error occurred during ingestion.")
