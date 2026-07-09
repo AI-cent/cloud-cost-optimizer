@@ -245,3 +245,70 @@ def test_ingest_idempotent():
     # findings count should be same as one ingest (detector clears+rewrites)
     count_after_2 = len(res.json())
     assert count_after_2 > 0
+
+
+# ── Required 5 tests ──────────────────────────────────────────────────────────
+
+def test_csv_ingestion():
+    """Ingest sample CSV and assert all 20 rows are stored in resources table."""
+    ingest_sample()
+    db = TestingSessionLocal()
+    try:
+        from models import Resource
+        count = db.query(Resource).count()
+        assert count == 20, f"Expected 20 resources in DB, got {count}"
+    finally:
+        db.close()
+
+
+def test_orphan_detection():
+    """Assert at least 5 findings are created after detection runs on sample data."""
+    ingest_sample()
+    db = TestingSessionLocal()
+    try:
+        from models import Finding
+        count = db.query(Finding).count()
+        assert count >= 5, f"Expected at least 5 findings, got {count}"
+    finally:
+        db.close()
+
+
+def test_remediation_generation():
+    """Assert every finding has a corresponding AWS CLI command in remediation_commands table."""
+    ingest_sample()
+    db = TestingSessionLocal()
+    try:
+        from models import Finding, RemediationCommand
+        findings = db.query(Finding).all()
+        assert len(findings) > 0, "No findings found — ingest may have failed"
+        for finding in findings:
+            cmd = db.query(RemediationCommand).filter(
+                RemediationCommand.finding_id == finding.id
+            ).first()
+            assert cmd is not None, f"Finding id={finding.id} has no remediation command"
+            assert cmd.command_text.startswith("aws "), \
+                f"Command for finding id={finding.id} is not a valid AWS CLI command: '{cmd.command_text}'"
+    finally:
+        db.close()
+
+
+def test_summary_endpoint():
+    """Call GET /summary and assert total_waste_usd > 0 and findings_by_severity is not empty."""
+    ingest_sample()
+    res = client.get("/summary")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total_waste_usd"] > 0, \
+        f"Expected total_waste_usd > 0, got {data['total_waste_usd']}"
+    assert data["findings_by_severity"], \
+        "findings_by_severity should not be empty after ingestion"
+
+
+def test_invalid_file_upload():
+    """POST a .txt file to /ingest and assert response status code is 400."""
+    res = client.post(
+        "/ingest",
+        files={"file": ("report.txt", b"this is not a csv file", "text/plain")},
+    )
+    assert res.status_code == 400, \
+        f"Expected 400 for .txt upload, got {res.status_code}"

@@ -85,3 +85,21 @@
 **Action:** Updated prompts.md with all turns 3–8.
 
 ---
+
+## Turn 9 — 2026-07-08 ~18:03 PDT
+
+**Prompt:**
+> Add Python logging throughout the application using the built-in logging module: 1. Log every file ingestion — include filename, row count, and timestamp. 2. Log every orphaned resource detected — include resource ID, type, and finding type. 3. Log every remediation command generated — include finding ID and command preview. 4. Log all API errors at ERROR level with the endpoint and error detail. 5. Write logs to both console and a file named app.log. 6. Use INFO level for normal operations, WARNING for skipped rows, ERROR for failures. After adding logging, ingest the sample CSV again and show me the app.log output to confirm logging is working.
+
+**Action:** Created logger.py with RotatingFileHandler (5MB, 3 backups). Wired into main.py lifespan. Added INFO/WARNING/ERROR log statements to aws_parser.py, orphan_detector.py, remediation.py, routes.py. Silenced multipart DEBUG noise. Showed clean app.log output. 17/17 tests passing.
+
+---
+
+## Turn 10 — 2026-07-08 ~18:10 PDT
+
+**Prompt:**
+> Write tests/test_pipeline.py with these 5 tests: 1. test_csv_ingestion — ingest sample CSV and assert all 20 rows are stored in resources table. 2. test_orphan_detection — assert at least 5 findings are created. 3. test_remediation_generation — assert every finding has a corresponding AWS CLI command. 4. test_summary_endpoint — call GET /summary and assert total_waste_usd > 0 and findings_by_severity not empty. 5. test_invalid_file_upload — POST a .txt file and assert 400. Update prompts.md.
+
+**Action:** Appended 5 required named tests to test_pipeline.py. All query DB directly via TestingSessionLocal for assertions 1–3. 22/22 tests passing.
+
+---
