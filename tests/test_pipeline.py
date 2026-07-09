@@ -203,6 +203,40 @@ def test_ingest_nonnumeric_cost_rows_skipped():
     assert data["resources_skipped"] == 0
 
 
+def test_remediation_command_sanitised():
+    """Injected chars in resource IDs must be stripped from CLI commands."""
+    from engine.remediation import _sanitise_resource_id, _sanitise_region
+    # Command injection attempt
+    assert ";" not in _sanitise_resource_id("vol-abc; rm -rf /")
+    assert "`" not in _sanitise_resource_id("vol-abc`whoami`")
+    assert "$" not in _sanitise_resource_id("vol-abc$(cat /etc/passwd)")
+    # Legitimate ARN should survive sanitisation unchanged
+    arn = "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/alb/1a2b"
+    assert _sanitise_resource_id(arn) == arn
+    # Region safety
+    assert _sanitise_region("us-east-1") == "us-east-1"
+    assert _sanitise_region("us-east-1; DROP TABLE resources") == "us-east-1droptableresources"
+
+
+def test_error_responses_contain_no_stack_traces():
+    """API errors must return {error, detail} — no tracebacks or file paths."""
+    bad_csv = b"wrong,columns\n1,2\n"
+    res = client.post("/ingest", files={"file": ("bad.csv", bad_csv, "text/csv")})
+    body = res.text
+    assert "Traceback" not in body
+    assert "/sessions/" not in body
+    assert "site-packages" not in body
+    assert "error" in res.json()
+    assert "detail" in res.json()
+
+
+def test_cors_header_present_for_localhost():
+    """CORS header must be set for allowed localhost origin."""
+    res = client.get("/summary", headers={"Origin": "http://localhost:8000"})
+    assert res.status_code == 200
+    assert "access-control-allow-origin" in res.headers
+
+
 def test_ingest_idempotent():
     """Ingesting same CSV twice should not duplicate resources."""
     ingest_sample()

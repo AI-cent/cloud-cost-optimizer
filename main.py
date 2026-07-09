@@ -1,8 +1,13 @@
+import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from database import init_db
 from api.routes import router
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -17,6 +22,29 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# ── CORS — allow only localhost origins ───────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:8000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:8000",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
+
+# ── Global exception handler — no stack traces ever reach the client ──────────
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"error": "internal_server_error", "detail": "An unexpected error occurred."},
+    )
 
 # Jinja2 templates
 templates = Jinja2Templates(directory="dashboard/templates")
