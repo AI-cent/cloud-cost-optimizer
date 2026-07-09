@@ -91,6 +91,7 @@ def test_ingest_returns_200():
     assert res.status_code == 200
     data = res.json()
     assert data["resources_ingested"] == 20
+    assert data["resources_skipped"] == 0
     assert data["findings_generated"] > 0
 
 
