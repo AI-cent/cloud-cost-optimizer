@@ -15,7 +15,7 @@ COLUMN_ALIASES = {
     "resource_name":      ["resource_name", "resourcename", "resource name", "resourcetags/user:name"],
     "resource_type":      ["resource_type", "resourcetype", "resource type", "lineitem/productcode", "product/productname"],
     "region":             ["region", "product/region", "lineitem/availabilityzone"],
-    "monthly_cost_usd":   ["monthly_cost_usd", "monthlycostusd", "lineitem/unblendedcost", "cost"],
+    "monthly_cost_usd":   ["monthly_cost_usd", "monthlycostusd", "monthlycost", "lineitem/unblendedcost", "cost"],
     "status":             ["status", "resource_status"],
     "last_active_date":   ["last_active_date", "lastactivedate", "last active date"],
 }
