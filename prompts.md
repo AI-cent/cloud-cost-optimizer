@@ -19,6 +19,99 @@
 
 ---
 
+## Turn 18
+**Prompt:**
+> still not working
+
+**Action:** Root-caused `openModal()` bug — the `modal-confirm-btn` handler called `closeModal()` first, which fired `modalResolve(false)` and resolved the Promise as `false`. The subsequent `res(true)` was silently ignored on an already-settled Promise. So `await openModal()` **always returned `false`**, causing every `if (!ok) return` guard to exit immediately. Both "Clear All Data" and "Remediate" were broken for the same reason.
+
+Fix: `closeModal()` now accepts a `confirmed` boolean (default `false`). The confirm button calls `closeModal(true)`. Inside `closeModal`, `modalResolve` is nulled before calling, preventing double-resolution. One-line change to `modal-confirm-btn.onclick`, one change to `closeModal` signature.
+
+---
+
+## Turn 17
+**Prompt:**
+> Clear all data still not working
+
+**Action:** Ran two diagnostic tests. (1) Backend test via TestClient: DELETE /data confirmed working — waste $1812.2 → $0, findings 10 → 0. (2) JS extraction test: showed `JS block length: 0 chars` — this was a test artifact (html.find('<script>') matched the Chart.js `<script src>` tag first, not the inline script block). Actual inline JS is 25,562 chars with balanced braces. `confirmClear` wired correctly. Root cause was the `openModal` Promise always resolving false (identified in Turn 18).
+
+---
+
+## Turn 16
+**Prompt:**
+> Clear all data still not working
+
+**Action:** Hardened `confirmClear()` to force UI reset synchronously immediately on a successful DELETE response, without relying on `refreshAll()`. Steps: (1) zero all summary cards in DOM, (2) replace findings tbody with empty-state row, (3) destroy both Chart.js instances and call `clearCanvas()` on both canvases, (4) show success toast, (5) call `refreshAll()` wrapped in its own try/catch as best-effort only. Backend confirmed working via TestClient.
+
+---
+
+## Turn 15
+**Prompt:**
+> Issue remains: 1) Clear all data not clearing all data 2) Pie chart need completely different color for each criticality
+
+**Action:** Fixed two root causes. (1) Clear: added `res.ok` check — previously 401/server errors fell through to the success path. (2) Charts: moved `chart.destroy()` call to BEFORE the `if (!labels.length) return` early exit — previously stale Chart.js instances survived a clear because render functions returned early without destroying. Added `clearCanvas()` helper.
+
+---
+
+## Turn 14
+**Prompt:**
+> Couple of other observations: 1) Bar chart - need different color for each service 2) Pie Chart - need different color for each criticality 3) Increase font size to 18
+
+**Action:** (1) Added `BAR_COLORS` array of 10 distinct colors; bar chart maps each label to `BAR_COLORS[i % BAR_COLORS.length]`. (2) Pie severity colors changed to 4 completely different hues: Critical=#D13212 (red), High=#FF9900 (orange), Medium=#0073bb (blue), Low=#1A9C3E (green). (3) `html, body { font-size: 18px }`.
+
+---
+
+## Turn 13
+**Prompt:**
+> Issue remains: 1) Clear all data not clearing all data 2) Pie chart need completely different color for each criticality
+
+**Action:** (First attempt at these two issues — later found to be incomplete fix.)
+
+---
+
+## Turn 12
+**Prompt:**
+> Increase font size to 15x
+
+**Action:** Changed `html, body { font-size: 13px }` → `font-size: 15px`.
+
+---
+
+## Turn 11
+**Prompt:**
+> FIX 1 — CLI column missing: add CLI Command column with truncated text, Copy button, tooltip on hover. FIX 2 — Remediate button not working: JWT guard, spinner-in-button, green row on success, error toast on failure, redirect to login on 401/403. FIX 3 — Layout: cards 10vh, charts 30vh, table 60vh, zero page scroll.
+
+**Action:** Three targeted edits to `index.html` only. No Python changes.
+- FIX 1: Added `col.c-cli` (28%), `.cli-cell`/`.cli-wrap`/`.cli-text`/`.copy-cli-btn` styles, CLI Command `<th>` and `<td>` in table (colspan bumped to 8), truncated monospace text with native `title` tooltip and standalone Copy button calling existing `copyCmd()`.
+- FIX 2: `remediateOne()` rewritten — JWT null-check + logout redirect, explicit `Authorization: Bearer ${JWT}` header, per-button inline spinner, 401/403 guard → logout, success path adds `.row-remediated` (green bg) + updates badge + replaces button with ✓ Done, failure path shows error toast + logs CLI to console.
+- FIX 3: CSS vars `--cards-h: 10vh`, `--charts-h: 30vh`, `--table-h: 60vh`.
+
+---
+
+## Turn 10
+**Prompt:**
+> Apply AWS theme to dashboard/templates/index.html only. No Python changes. Orange #FF9900, Dark #232F3E, Green #1A9C3E, Red #D13212, Yellow #F0A30A, Bg #F2F3F3. Sidebar #232F3E bg + #FF9900 title/active links. Cards white + #FF9900 top border 3px. Bar chart bars #FF9900. Pie: Critical #D13212, High #FF9900, Medium #F0A30A, Low #1A9C3E. Table header #232F3E bg + white text. Severity badges pill-shaped matching colors. Remediate btn #FF9900/#232F3E. Copy CLI btn #232F3E/white. Login card white + #FF9900 top bar. Page bg #F2F3F3. Hover darken 10%.
+
+**Action:** Targeted CSS-only edits to `index.html`. Updated: `:root` tokens, body/bg, auth card (white + orange top bar), modal (white + orange top bar), toasts (white with colored left border), spinner, all `.btn-*` variants, all `.badge-*` severity/status, role badges, sidebar (background, logo color, nav active state, section dividers, drop zone, user avatar), viewer banner (amber), cards (white + 3px orange top border), charts row (white panels), table (dark header, light row dividers, orange hover), scrollbar. JS: bar chart → all bars `#FF9900`, pie chart → `Critical #D13212 / High #FF9900 / Medium #F0A30A / Low #1A9C3E`. Zero Python files touched.
+
+---
+
+## Turn 9
+**Prompt:**
+> Redesign dashboard/templates/index.html only. No Python changes. Sidebar 20vw #1e2a3a / main 80vw split vertically: cards 20vh (4 cols), charts 40vh (bar+pie 50/50), findings 40vh (overflow-y auto). vh/vw units, zero page scroll. Charts maintainAspectRatio:false, legend bottom 10px. Table: table-layout fixed, 6px padding, 7 cols. Action: Remediate (admin) or Copy CLI (viewer). Sidebar: upload, nav links, user+role at bottom. Login: 400px card with role dropdown. Modal: 480px centered with backdrop. Toasts: bottom-right, auto-dismiss 4s. Viewer banner: compact single line. Confirm at 1280/1440/1680/1920px.
+
+**Action:** Full rewrite of `dashboard/templates/index.html`. Key changes: layout = flex row with sidebar 20vw (#1e2a3a) + main-content 80vw (flex column); main split into cards-row 20vh / charts-row 40vh / findings-row 40vh; pie chart (was doughnut); table-layout:fixed with 7 col widths; modal component with Promise-based confirm; toast system with 4s auto-dismiss; viewer banner as single compact line; nav links in sidebar; user+role badge pinned to sidebar footer. No Python files changed.
+
+---
+
+## Turn 8
+**Prompt:**
+> Redesign the dashboard layout so charts and findings table are arranged in two columns: Left column 40% (summary cards 2×2, bar chart 200px, doughnut chart 200px). Right column 60% (findings table full height). Compact table: 6px padding, columns = Resource Name / Type / Region / Severity / Waste / Status / Action. Chart labels/legends 10px. Everything fits 1440×900, zero page scroll. Only index.html — no Python files.
+
+**Action:** Full rewrite of `dashboard/templates/index.html`. Key changes: upload CSV moved into sidebar; main content is a `.content-row` CSS Grid (40%/60%); left col has 2×2 cards + two `.chart-box` divs at 12.5rem each; right col is `.right-col` flex column with findings table at full height; `td { padding: 6px 0.55rem }`; chart tick/legend font-size 10px; `maintainAspectRatio: false` with `position: absolute; inset: 0` canvas. No Python files changed.
+
+---
+
 ## Turn 7
 **Prompt:**
 > 3 dashboard changes: (1) Role dropdown on register (Admin/Viewer, Viewer default, first user always Admin); (2) Role-based UI (Admin sees Remediate/Bulk/Clear/Users, Viewer sees Copy CLI + grey banner); (3) Fully responsive layout (CSS Grid, sidebar 240px, 4-col→2-col→1-col cards, 50/50→stacked charts, findings fixed 280px, no page scroll at 1280px+). Only index.html — no Python files.

@@ -6,1065 +6,1219 @@
   <title>Cloud Cost Optimizer</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    /* ── Design tokens ───────────────────────────────── */
+    /* ── Tokens — AWS Theme ─────────────────────────────── */
     :root {
-      --sidebar-w   : 15rem;
-      --header-h    : 3rem;
-      --gap         : 0.75rem;
-      --radius      : 0.5rem;
-      --bg          : #0f1117;
-      --surface     : #1a1f2e;
-      --border      : #2d3748;
-      --text        : #e2e8f0;
-      --muted       : #718096;
-      --accent      : #63b3ed;
-      --green       : #68d391;
-      --orange      : #f6ad55;
-      --red         : #fc8181;
-      --yellow      : #fbd38d;
+      --sidebar-bg : #232F3E;
+      --main-bg    : #F2F3F3;
+      --surface    : #FFFFFF;
+      --border     : #D5DBDB;
+      --text       : #16191f;
+      --muted      : #687078;
+      --accent     : #FF9900;
+      --green      : #1A9C3E;
+      --orange     : #FF9900;
+      --red        : #D13212;
+      --yellow     : #F0A30A;
+      --radius     : 6px;
+      /* Layout slices — FIX 3 */
+      --cards-h    : 10vh;
+      --charts-h   : 30vh;
+      --table-h    : 60vh;
     }
 
-    /* ── Reset & base ────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
-      height: 100%;
-      /* page scroll only allowed on screens narrower than 1280px */
+      width: 100vw; height: 100vh;
       overflow: hidden;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
+      font-family: 'Amazon Ember', 'Segoe UI', system-ui, sans-serif;
+      font-size: 18px;
+      background: var(--main-bg);
       color: var(--text);
-      /* fluid base font: 13px at 1280px → 15px at 1920px */
-      font-size: clamp(0.8125rem, 0.625rem + 0.3vw, 0.9375rem);
-    }
-    @media (max-width: 1279px) {
-      html, body { overflow: auto; }
     }
 
-    /* ── Auth overlay ────────────────────────────────── */
+    /* ════════════════════════════════════════════════════
+       AUTH OVERLAY
+       ════════════════════════════════════════════════════ */
     #auth-overlay {
-      position: fixed; inset: 0; background: var(--bg);
-      display: flex; align-items: center; justify-content: center; z-index: 200;
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(35,47,62,0.92);
+      display: flex; align-items: center; justify-content: center;
     }
     #auth-overlay.hidden { display: none; }
 
     .auth-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 0.75rem; padding: 2rem; width: 100%; max-width: 26rem;
+      width: 400px;
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      border-top: 4px solid var(--accent);
+      padding: 2rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
     }
-    .auth-card h1 { font-size: 1.4rem; color: var(--accent); margin-bottom: 0.2rem; }
-    .auth-card > p { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.25rem; }
+    .auth-card h1 { font-size: 1.25rem; color: var(--sidebar-bg); margin-bottom: 0.25rem; }
+    .auth-card > p { font-size: 0.78rem; color: var(--muted); margin-bottom: 1.25rem; }
 
-    .form-group { margin-bottom: 0.9rem; }
-    .form-group label { display: block; font-size: 0.75rem; color: #a0aec0; margin-bottom: 0.25rem; }
-    .form-group input,
-    .form-group select {
-      width: 100%; padding: 0.55rem 0.7rem;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 0.375rem; color: var(--text); font-size: 0.875rem; outline: none;
-      appearance: none;
+    .fg { margin-bottom: 0.75rem; }
+    .fg label { display: block; font-size: 0.7rem; color: #687078; margin-bottom: 0.2rem; font-weight: 600; }
+    .fg input, .fg select {
+      width: 100%; padding: 0.48rem 0.65rem;
+      background: #fff; border: 1px solid #aab7b8;
+      border-radius: 4px; color: var(--text); font-size: 0.82rem;
+      outline: none; appearance: none;
     }
-    .form-group input:focus,
-    .form-group select:focus { border-color: var(--accent); }
+    .fg input:focus, .fg select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255,153,0,0.2); }
 
     .auth-note {
-      font-size: 0.72rem; color: #a0aec0; background: rgba(99,179,237,0.08);
-      border: 1px solid rgba(99,179,237,0.2); border-radius: 0.375rem;
-      padding: 0.45rem 0.65rem; margin-bottom: 0.75rem;
+      font-size: 0.68rem; color: #687078;
+      background: #fef9ec;
+      border: 1px solid #f0a30a;
+      border-radius: 4px; padding: 0.38rem 0.55rem; margin-bottom: 0.65rem;
     }
-    .auth-error-msg { color: var(--red); font-size: 0.8rem; margin-top: 0.4rem; min-height: 1.1rem; }
-    .auth-toggle { text-align: center; margin-top: 0.9rem; font-size: 0.8rem; color: var(--muted); }
-    .auth-toggle span { color: var(--accent); cursor: pointer; text-decoration: underline; }
+    .auth-err { color: var(--red); font-size: 0.72rem; min-height: 1rem; margin: 0.25rem 0; }
+    .auth-toggle { text-align: center; margin-top: 0.75rem; font-size: 0.74rem; color: var(--muted); }
+    .auth-toggle span { color: #0073bb; cursor: pointer; text-decoration: underline; }
 
-    /* ── Buttons ─────────────────────────────────────── */
+    /* ════════════════════════════════════════════════════
+       MODAL
+       ════════════════════════════════════════════════════ */
+    #modal-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 250;
+      background: rgba(35,47,62,0.7);
+      align-items: center; justify-content: center;
+    }
+    #modal-backdrop.open { display: flex; }
+    .modal {
+      width: 480px; background: #fff;
+      border: 1px solid var(--border); border-radius: 4px;
+      border-top: 4px solid var(--accent);
+      padding: 1.5rem; position: relative;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .modal h2 { font-size: 1rem; margin-bottom: 0.75rem; color: var(--sidebar-bg); }
+    .modal p  { font-size: 0.82rem; color: #687078; line-height: 1.55; }
+    .modal-footer { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.1rem; }
+    .modal-close {
+      position: absolute; top: 0.75rem; right: 0.85rem;
+      background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1.1rem;
+    }
+
+    /* ════════════════════════════════════════════════════
+       TOASTS
+       ════════════════════════════════════════════════════ */
+    #toast-container {
+      position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 400;
+      display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end;
+    }
+    .toast {
+      padding: 0.55rem 1rem; border-radius: var(--radius);
+      font-size: 0.78rem; font-weight: 600; max-width: 320px;
+      animation: slideIn 0.2s ease;
+    }
+    @keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
+    .toast-ok  { background: #fff; color: #1A9C3E; border-left: 4px solid #1A9C3E; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .toast-err { background: #fff; color: #D13212; border-left: 4px solid #D13212; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .toast-inf { background: #fff; color: #0073bb; border-left: 4px solid #FF9900; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+
+    /* ════════════════════════════════════════════════════
+       LOADING SPINNER
+       ════════════════════════════════════════════════════ */
+    #spinner {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(242,243,243,0.75);
+      align-items: center; justify-content: center; flex-direction: column; gap: 0.6rem;
+    }
+    #spinner.on { display: flex; }
+    .spin-ring {
+      width: 2rem; height: 2rem;
+      border: 3px solid #D5DBDB; border-top-color: #FF9900;
+      border-radius: 50%; animation: turn 0.6s linear infinite;
+    }
+    @keyframes turn { to { transform: rotate(360deg); } }
+
+    /* ════════════════════════════════════════════════════
+       BUTTONS
+       ════════════════════════════════════════════════════ */
     .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;
-      padding: 0.5rem 1rem; border-radius: var(--radius); border: none;
-      cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: opacity 0.15s, transform 0.1s;
-      white-space: nowrap;
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;
+      padding: 0.4rem 0.85rem; border: none; border-radius: 4px;
+      cursor: pointer; font-size: 0.76rem; font-weight: 600;
+      transition: filter .15s, transform .08s; white-space: nowrap;
     }
-    .btn:hover:not(:disabled) { opacity: 0.85; }
-    .btn:active:not(:disabled) { transform: scale(0.97); }
-    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { filter: brightness(0.88); }
+    .btn:active:not(:disabled) { transform: scale(.97); filter: brightness(0.80); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    /* Primary (login/register) — AWS Orange */
+    .btn-primary { background: #FF9900; color: #232F3E; width: 100%; margin-top: 0.35rem; border: 1px solid #e88b00; }
+    /* Remediate — AWS Orange */
+    .btn-success { background: #FF9900; color: #232F3E; border: 1px solid #e88b00; }
+    /* Danger / destructive — AWS Red */
+    .btn-danger  { background: #D13212; color: #fff; border: 1px solid #b32d10; }
+    /* Bulk Remediate — AWS Orange outline */
+    .btn-warn    { background: #fff; color: #232F3E; border: 2px solid #FF9900; }
+    /* Copy CLI — dark navy */
+    .btn-ghost   { background: #232F3E; color: #fff; border: 1px solid #16212e; }
+    .btn-sm  { padding: 0.3rem 0.65rem; font-size: 0.74rem; }
+    .btn-xs  { padding: 0.18rem 0.5rem; font-size: 0.68rem; }
+    .btn-full { width: 100%; }
 
-    .btn-primary { background: #3182ce; color: #fff; width: 100%; margin-top: 0.4rem; }
-    .btn-success { background: #276749; color: #fff; }
-    .btn-danger  { background: #c53030; color: #fff; }
-    .btn-warn    { background: #744210; color: var(--orange); border: 1px solid #c05621; }
-    .btn-ghost   { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--border); }
-    .btn-sm      { padding: 0.28rem 0.6rem; font-size: 0.74rem; }
-    .btn-xs      { padding: 0.18rem 0.45rem; font-size: 0.68rem; }
-    .btn-full    { width: 100%; }
-
-    /* ── Loading overlay ─────────────────────────────── */
-    #loading-overlay {
-      display: none; position: fixed; inset: 0; background: rgba(15,17,23,0.7);
-      z-index: 150; align-items: center; justify-content: center; flex-direction: column; gap: 0.85rem;
+    /* ════════════════════════════════════════════════════
+       BADGES
+       ════════════════════════════════════════════════════ */
+    .badge {
+      display: inline-block; padding: 0.15rem 0.55rem;
+      border-radius: 999px; font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.03em;
     }
-    #loading-overlay.active { display: flex; }
-    .spinner {
-      width: 2.5rem; height: 2.5rem; border: 3px solid var(--border);
-      border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite;
+    /* Severity — AWS palette */
+    .badge-Critical   { background: #FBEAEA; color: #D13212; border: 1px solid #D13212; }
+    .badge-High       { background: #FEF4E8; color: #B2510A; border: 1px solid #FF9900; }
+    .badge-Medium     { background: #FEF9E7; color: #8B6000; border: 1px solid #F0A30A; }
+    .badge-Low        { background: #EAF5ED; color: #1A9C3E; border: 1px solid #1A9C3E; }
+    /* Status */
+    .badge-pending    { background: #F2F3F3; color: #687078; border: 1px solid #aab7b8; }
+    .badge-remediated { background: #EAF5ED; color: #1A9C3E; border: 1px solid #1A9C3E; }
+    .badge-failed     { background: #FBEAEA; color: #D13212; border: 1px solid #D13212; }
+    .role-badge {
+      display:inline-block; padding:0.15rem 0.5rem; border-radius:999px;
+      font-size:0.6rem; font-weight:700; text-transform:uppercase;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #spinner-label { color: #a0aec0; font-size: 0.85rem; }
+    .role-admin  { background: #EAF5ED; color: #1A9C3E; border: 1px solid #1A9C3E; }
+    .role-viewer { background: #F2F3F3; color: #687078; border: 1px solid #aab7b8; }
 
-    /* ── App shell: CSS Grid ─────────────────────────── */
-    #main-app {
-      display: none;
-      height: 100vh;
+    /* ════════════════════════════════════════════════════
+       APP SHELL  —  sidebar 20vw | main 80vw
+       ════════════════════════════════════════════════════ */
+    #main-app { display: none; }
+    #main-app.visible {
+      display: flex;
+      width: 100vw; height: 100vh;
       overflow: hidden;
     }
-    #main-app.visible {
-      display: grid;
-      grid-template-rows: var(--header-h) 1fr;
-      grid-template-columns: var(--sidebar-w) 1fr;
-      grid-template-areas:
-        "header  header"
-        "sidebar main";
-    }
 
-    /* ── Header ──────────────────────────────────────── */
-    #app-header {
-      grid-area: header;
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 1.25rem; z-index: 10;
-    }
-    #app-header h1 { font-size: 1rem; color: var(--accent); letter-spacing: -0.01em; }
-    .header-right   { display: flex; align-items: center; gap: 0.75rem; font-size: 0.8rem; color: var(--muted); }
-
-    .role-badge {
-      display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
-      font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-    }
-    .role-admin  { background: #1c4532; color: var(--green); border: 1px solid #276749; }
-    .role-viewer { background: #2d3748; color: #a0aec0; border: 1px solid #4a5568; }
-
-    /* ── Sidebar ─────────────────────────────────────── */
+    /* ── Sidebar ────────────────────────────────────────── */
     #sidebar {
-      grid-area: sidebar;
-      background: var(--surface); border-right: 1px solid var(--border);
+      width: 20vw; min-width: 200px;
+      background: var(--sidebar-bg);
+      color: #fff;
       display: flex; flex-direction: column;
-      overflow-y: auto; overflow-x: hidden;
+      overflow: hidden; flex-shrink: 0;
+      border-right: 1px solid #16212e;
     }
 
-    .sidebar-section { padding: 0.85rem 0.85rem 0.5rem; }
-    .sidebar-section + .sidebar-section { border-top: 1px solid var(--border); }
-    .sidebar-label {
-      font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.55rem;
+    .sb-logo {
+      padding: 0.85rem 1rem;
+      font-size: 0.95rem; font-weight: 700; color: #FF9900;
+      border-bottom: 1px solid #16212e; flex-shrink: 0;
+      letter-spacing: -0.01em;
     }
 
-    /* Viewer info banner */
-    #viewer-banner {
-      display: none;
-      background: rgba(74,85,104,0.25); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 0.65rem 0.75rem;
-      font-size: 0.75rem; color: #a0aec0; line-height: 1.5;
+    /* Upload */
+    .sb-sect { padding: 0.65rem 0.85rem; border-bottom: 1px solid #16212e; flex-shrink: 0; }
+    .sb-sect-label {
+      font-size: 0.58rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: #9ba7b4; margin-bottom: 0.4rem;
     }
-
-    /* Users table (admin sidebar) */
-    #users-section { display: none; }
-    .sidebar-user-row {
-      display: flex; align-items: center; gap: 0.5rem;
-      padding: 0.35rem 0; border-bottom: 1px solid rgba(45,55,72,0.6);
-      font-size: 0.75rem;
-    }
-    .sidebar-user-row:last-child { border-bottom: none; }
-    .u-avatar {
-      width: 1.6rem; height: 1.6rem; border-radius: 50%;
-      background: #3182ce; display: flex; align-items: center; justify-content: center;
-      font-size: 0.65rem; font-weight: 700; color: #fff; flex-shrink: 0;
-    }
-    .u-name  { color: var(--text); font-weight: 600; flex: 1; }
-    .u-email { font-size: 0.68rem; color: var(--muted); }
-
-    /* ── Main content area ───────────────────────────── */
-    #main-content {
-      grid-area: main;
-      display: flex; flex-direction: column;
-      gap: var(--gap); padding: var(--gap);
-      overflow: hidden; /* no scroll on 1280px+ — sections fill height */
-      min-height: 0;
-    }
-
-    /* ── Error banner ────────────────────────────────── */
-    #error-banner {
-      display: none; background: #742a2a; border: 1px solid #c53030;
-      border-radius: var(--radius); color: var(--red);
-      font-size: 0.8rem; padding: 0.5rem 0.85rem;
-      align-items: center; gap: 0.75rem; flex-shrink: 0;
-    }
-    #error-banner.active { display: flex; }
-    #error-banner button { background: none; border: none; color: var(--red); cursor: pointer; margin-left: auto; }
-
-    /* ── Upload section ──────────────────────────────── */
-    .upload-section {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 0.7rem 1rem;
-      flex-shrink: 0;
-    }
-    .upload-section h2 { font-size: 0.82rem; color: var(--text); margin-bottom: 0.5rem; }
-    .upload-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-
     .drop-zone {
-      flex: 1; min-width: 12rem;
-      border: 1.5px dashed var(--border); border-radius: var(--radius);
-      padding: 0.55rem 0.85rem; text-align: center; color: var(--muted);
-      cursor: pointer; transition: border-color 0.2s; position: relative; font-size: 0.78rem;
+      border: 1.5px dashed #3d5166; border-radius: 4px;
+      padding: 0.5rem 0.6rem; text-align: center;
+      color: #9ba7b4; font-size: 0.7rem;
+      cursor: pointer; position: relative; transition: border-color .2s;
     }
-    .drop-zone.dragover { border-color: var(--accent); background: rgba(99,179,237,0.05); }
+    .drop-zone.dragover { border-color: #FF9900; background: rgba(255,153,0,.06); }
     .drop-zone input[type="file"] {
-      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+      position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer;
     }
-    .drop-zone .file-hint { pointer-events: none; }
-    .drop-zone .file-chosen { color: var(--accent); font-weight: 600; font-size: 0.78rem; }
+    #file-label {
+      display: block; font-size: 0.65rem; color: #FF9900;
+      font-weight: 600; margin-top: 0.15rem;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #upload-status { display: block; font-size: 0.65rem; margin-top: 0.3rem; }
+    .s-ok  { color: #1A9C3E; }
+    .s-err { color: #D13212; }
+    .s-inf { color: #FF9900; }
 
-    #upload-status { font-size: 0.78rem; flex-shrink: 0; }
-    .status-ok   { color: var(--green); }
-    .status-err  { color: var(--red); }
-    .status-info { color: var(--accent); }
+    /* Nav links */
+    .sb-nav { padding: 0.5rem 0; border-bottom: 1px solid #16212e; flex-shrink: 0; }
+    .nav-link {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.45rem 0.85rem; font-size: 0.78rem; color: #c5d0da;
+      cursor: pointer; transition: background .15s, color .15s;
+    }
+    .nav-link:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .nav-link.active { background: rgba(255,153,0,.12); color: #FF9900; border-left: 3px solid #FF9900; padding-left: calc(0.85rem - 3px); }
 
-    /* ── Summary cards ───────────────────────────────── */
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: var(--gap); flex-shrink: 0;
+    /* Quick stats */
+    .sb-stats { padding: 0.55rem 0.85rem; border-bottom: 1px solid #16212e; flex-shrink: 0; }
+    .sb-stat { font-size: 0.7rem; color: #9ba7b4; line-height: 1.9; }
+
+    /* Users (admin) */
+    #users-section { flex-shrink: 0; border-bottom: 1px solid #16212e; overflow: hidden; max-height: 22vh; }
+    .sb-users-scroll { overflow-y: auto; }
+    .u-row {
+      display: flex; align-items: center; gap: 0.4rem;
+      padding: 0.25rem 0.85rem; font-size: 0.68rem;
+      border-top: 1px solid rgba(22,33,46,.7);
+    }
+    .u-av {
+      width: 1.35rem; height: 1.35rem; border-radius: 50%;
+      background: #FF9900; color: #232F3E;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.58rem; font-weight: 700; flex-shrink: 0;
+    }
+    .u-info { flex: 1; min-width: 0; }
+    .u-name  { font-weight: 600; color: #e8edf2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .u-email { font-size: 0.6rem; color: #9ba7b4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* Spacer + footer */
+    .sb-spacer { flex: 1; }
+    .sb-footer {
+      padding: 0.6rem 0.85rem;
+      border-top: 1px solid #16212e; flex-shrink: 0;
+      display: flex; flex-direction: column; gap: 0.4rem;
+    }
+    .sb-user-info {
+      display: flex; align-items: center; gap: 0.45rem;
+      font-size: 0.72rem; color: #e8edf2;
+    }
+    #clear-status { font-size: 0.62rem; color: #9ba7b4; }
+
+    /* ── Main content ───────────────────────────────────── */
+    #main-content {
+      width: 80vw; height: 100vh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Viewer banner — compact single line */
+    #viewer-banner {
+      display: none; flex-shrink: 0;
+      background: #fef9ec; border-bottom: 1px solid #F0A30A;
+      padding: 0.3rem 1rem; font-size: 0.7rem; color: #8B6000;
+    }
+    #viewer-banner.show { display: block; }
+
+    /* ── Cards row — 20vh ─────────────────────────────── */
+    #cards-row {
+      height: var(--cards-h); flex-shrink: 0;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem;
+      padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border);
+      background: var(--main-bg);
     }
     .card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 0.75rem 1rem;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-top: 3px solid #FF9900;
+      border-radius: 4px; padding: 0.6rem 0.75rem;
+      display: flex; flex-direction: column; justify-content: space-between;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
-    .card-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .card-value { font-size: 1.65rem; font-weight: 700; color: var(--accent); margin-top: 0.15rem; line-height: 1.1; }
-    .card-sub   { font-size: 0.7rem; color: #a0aec0; margin-top: 0.15rem; }
+    .card-label { font-size: 0.58rem; color: #687078; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+    .card-value { font-size: 1.4rem; font-weight: 700; color: #232F3E; line-height: 1.1; margin-top: 0.15rem; }
+    .card-sub   { font-size: 0.6rem; color: #687078; margin-top: 0.1rem; }
 
-    /* ── Charts section ──────────────────────────────── */
-    .charts {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: var(--gap);
-      /* on desktop: takes remaining height between cards and table */
-      flex: 1; min-height: 0;
+    /* ── Charts row — 40vh ─────────────────────────────── */
+    #charts-row {
+      height: var(--charts-h); flex-shrink: 0;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
+      padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border);
+      background: var(--main-bg);
     }
-    .chart-box {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 0.75rem;
-      display: flex; flex-direction: column; min-height: 0;
+    .chart-panel {
+      background: #fff; border: 1px solid var(--border);
+      border-radius: 4px; padding: 0.55rem 0.65rem;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
-    .chart-box h3 { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem; flex-shrink: 0; }
-    .chart-box .chart-inner {
-      flex: 1; min-height: 0; position: relative;
+    .chart-panel h3 { font-size: 0.62rem; color: #687078; font-weight: 700; margin-bottom: 0.3rem; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.04em; }
+    .chart-wrap { flex: 1; min-height: 0; position: relative; }
+    .chart-wrap canvas {
+      position: absolute; inset: 0;
+      width: 100% !important; height: 100% !important;
     }
-    .chart-box canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
 
-    /* ── Findings section ────────────────────────────── */
-    .findings-section {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); display: flex; flex-direction: column;
-      flex-shrink: 0;           /* don't grow — fixed height */
-      height: 17.5rem;          /* ~280px */
+    /* ── Findings row — 40vh ───────────────────────────── */
+    #findings-row {
+      height: var(--table-h); flex-shrink: 0;
+      display: flex; flex-direction: column;
+      padding: 0 0.75rem 0.5rem;
+      background: var(--main-bg);
     }
-    .findings-header {
+    .findings-hdr {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+      padding: 0.4rem 0; flex-shrink: 0; gap: 0.5rem;
     }
-    .findings-header h2 { font-size: 0.88rem; }
-    .findings-actions { display: flex; gap: 0.5rem; align-items: center; }
+    .findings-hdr h2 { font-size: 0.82rem; font-weight: 700; color: #232F3E; }
+    .findings-actions { display: flex; gap: 0.4rem; align-items: center; }
 
-    .table-wrap { overflow-y: auto; overflow-x: auto; flex: 1; min-height: 0; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+    .table-wrap {
+      flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0;
+      border: 1px solid var(--border); border-radius: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    table {
+      width: 100%; border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 0.72rem; background: #fff;
+    }
+    /* Column widths — 8 cols now (added CLI) */
+    col.c-name   { width: 16%; }
+    col.c-type   { width: 11%; }
+    col.c-region { width: 9%;  }
+    col.c-sev    { width: 8%;  }
+    col.c-waste  { width: 8%;  }
+    col.c-status { width: 8%;  }
+    col.c-cli    { width: 28%; }
+    col.c-action { width: 12%; }
+
+    /* CLI cell — monospace, truncate, tooltip */
+    .cli-cell {
+      font-family: 'Courier New', monospace;
+      font-size: 0.65rem; color: #687078;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      max-width: 0;            /* forces ellipsis with table-layout:fixed */
+    }
+    .cli-wrap {
+      display: flex; align-items: center; gap: 0.3rem; min-width: 0;
+    }
+    .cli-text {
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-family: 'Courier New', monospace; font-size: 0.65rem; color: #687078;
+    }
+    .copy-cli-btn {
+      flex-shrink: 0;
+      background: #232F3E; color: #fff;
+      border: none; border-radius: 3px;
+      padding: 0.12rem 0.4rem; font-size: 0.62rem; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
+      transition: filter .12s;
+    }
+    .copy-cli-btn:hover { filter: brightness(1.2); }
+    /* Green row after successful remediation */
+    tr.row-remediated td { background: #EAF5ED !important; }
+
     th {
-      background: var(--bg); color: var(--muted); text-align: left;
-      padding: 0.45rem 0.65rem; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.04em; font-size: 0.65rem; position: sticky; top: 0; z-index: 1;
+      background: #232F3E; color: #fff;
+      text-align: left; padding: 0.38rem 0.55rem;
+      font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; font-size: 0.58rem;
+      position: sticky; top: 0; z-index: 2;
     }
-    td { padding: 0.5rem 0.65rem; border-top: 1px solid var(--border); vertical-align: middle; }
-    tr:hover td { background: rgba(99,179,237,0.04); }
+    td {
+      padding: 6px 0.55rem;
+      border-top: 1px solid #e8edf2;
+      vertical-align: middle; color: #16191f;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    td.wrap { white-space: normal; overflow: visible; }
+    tr:hover td { background: #fef9ec; }
+    .empty { text-align: center; color: #687078; padding: 1.5rem; }
 
-    /* ── Badges ──────────────────────────────────────── */
-    .badge {
-      display: inline-block; padding: 0.15rem 0.45rem; border-radius: 999px;
-      font-size: 0.65rem; font-weight: 700; text-transform: uppercase; white-space: nowrap;
-    }
-    .badge-Critical   { background: #742a2a; color: var(--red); }
-    .badge-High       { background: #7b341e; color: var(--orange); }
-    .badge-Medium     { background: #744210; color: var(--yellow); }
-    .badge-Low        { background: #1a365d; color: #90cdf4; }
-    .badge-pending    { background: #2d3748; color: #a0aec0; }
-    .badge-remediated { background: #1c4532; color: var(--green); }
-    .badge-failed     { background: #742a2a; color: var(--red); }
-
-    /* ── CLI cell ────────────────────────────────────── */
-    .cli-wrap { display: flex; align-items: center; gap: 0.3rem; }
-    .cli-code {
-      font-family: monospace; font-size: 0.68rem; color: #9ae6b4;
-      background: var(--bg); padding: 0.2rem 0.4rem; border-radius: 0.25rem;
-      max-width: 13rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      display: inline-block;
-    }
-    .copy-btn {
-      background: none; border: none; cursor: pointer;
-      color: var(--muted); font-size: 0.7rem; padding: 0; flex-shrink: 0;
-    }
-    .copy-btn:hover { color: var(--accent); }
-
-    /* ── Footer (inside main) ────────────────────────── */
-    .main-footer {
-      display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem;
-      flex-shrink: 0; padding: 0 0.1rem;
-    }
-    #clear-status { font-size: 0.75rem; color: var(--muted); }
-
-    .empty-state { text-align: center; color: #4a5568; padding: 1.5rem; }
-
-    /* ── Responsive: 768px – 1279px (tablet) ─────────── */
-    @media (max-width: 1279px) {
-      #main-app.visible {
-        grid-template-columns: 1fr;
-        grid-template-areas:
-          "header"
-          "main";
-        height: auto; overflow: visible;
-      }
-      #sidebar { display: none; }
-      #main-content { overflow-y: auto; }
-      .cards { grid-template-columns: repeat(2, 1fr); }
-      .charts { grid-template-columns: 1fr; }
-      .findings-section { height: auto; }
-      .table-wrap { max-height: 17.5rem; }
-    }
-
-    /* ── Responsive: < 768px (mobile) ───────────────── */
-    @media (max-width: 767px) {
-      .cards { grid-template-columns: 1fr; }
-      .upload-row { flex-direction: column; align-items: stretch; }
-      .findings-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-    }
+    /* ════════════════════════════════════════════════════
+       SCROLLBAR STYLING
+       ════════════════════════════════════════════════════ */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #aab7b8; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #687078; }
   </style>
 </head>
 <body>
 
-<!-- ══════════════ LOADING OVERLAY ══════════════ -->
-<div id="loading-overlay">
-  <div class="spinner"></div>
-  <div id="spinner-label">Loading…</div>
+<!-- ════ SPINNER ════ -->
+<div id="spinner"><div class="spin-ring"></div><span style="font-size:.78rem;color:#a0aec0" id="spin-lbl">Loading…</span></div>
+
+<!-- ════ TOASTS ════ -->
+<div id="toast-container"></div>
+
+<!-- ════ MODAL ════ -->
+<div id="modal-backdrop">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2 id="modal-title">Confirm</h2>
+    <p  id="modal-body"></p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger btn-sm" id="modal-confirm-btn">Confirm</button>
+    </div>
+  </div>
 </div>
 
-<!-- ══════════════ AUTH OVERLAY ══════════════ -->
+<!-- ════ AUTH ════ -->
 <div id="auth-overlay">
   <div class="auth-card">
     <h1>☁️ Cloud Cost Optimizer</h1>
     <p>Sign in to manage your AWS spending</p>
 
-    <!-- Login form -->
+    <!-- Login -->
     <div id="login-form">
-      <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="login-username" placeholder="your-username" autocomplete="username" />
-      </div>
-      <div class="form-group">
-        <label>Password</label>
-        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
-      </div>
-      <div class="auth-error-msg" id="login-error"></div>
+      <div class="fg"><label>Username</label><input id="l-user" type="text" placeholder="your-username" autocomplete="username" /></div>
+      <div class="fg"><label>Password</label><input id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password" /></div>
+      <div class="auth-err" id="login-err"></div>
       <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Login</button>
       <div class="auth-toggle">No account? <span onclick="showRegister()">Register</span></div>
     </div>
 
-    <!-- Register form -->
+    <!-- Register -->
     <div id="register-form" style="display:none">
-      <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="reg-username" placeholder="your-username" />
-      </div>
-      <div class="form-group">
-        <label>Email</label>
-        <input type="email" id="reg-email" placeholder="you@example.com" />
-      </div>
-      <div class="form-group">
-        <label>Password</label>
-        <input type="password" id="reg-password" placeholder="••••••••" />
-      </div>
-      <div class="form-group">
+      <div class="fg"><label>Username</label><input id="r-user" type="text" placeholder="your-username" /></div>
+      <div class="fg"><label>Email</label><input id="r-email" type="email" placeholder="you@example.com" /></div>
+      <div class="fg"><label>Password</label><input id="r-pass" type="password" placeholder="••••••••" /></div>
+      <div class="fg">
         <label>Role</label>
-        <select id="reg-role">
+        <select id="r-role">
           <option value="Viewer" selected>Viewer</option>
           <option value="Admin">Admin</option>
         </select>
       </div>
-      <div class="auth-note" id="first-user-note">
-        ℹ️ The first registered user is automatically assigned <strong>Admin</strong> role regardless of selection.
-      </div>
-      <div class="auth-error-msg" id="register-error"></div>
+      <div class="auth-note">ℹ️ The first registered user is automatically assigned <strong>Admin</strong> role.</div>
+      <div class="auth-err" id="register-err"></div>
       <button class="btn btn-primary" id="register-btn" onclick="doRegister()">Create Account</button>
       <div class="auth-toggle">Have an account? <span onclick="showLogin()">Login</span></div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════ MAIN APP ══════════════ -->
+<!-- ════ MAIN APP ════ -->
 <div id="main-app">
 
-  <!-- Header -->
-  <header id="app-header">
-    <h1>☁️ Cloud Cost Optimizer</h1>
-    <div class="header-right">
-      <span id="user-label"></span>
-      <span class="role-badge" id="role-badge"></span>
-      <button class="btn btn-sm btn-danger" onclick="logout()">Logout</button>
-    </div>
-  </header>
-
-  <!-- Sidebar -->
+  <!-- ── Sidebar ─────────────────────────────────── -->
   <nav id="sidebar">
-
-    <!-- Viewer banner -->
-    <div class="sidebar-section">
-      <div id="viewer-banner">
-        🔒 You have <strong>Viewer</strong> access.<br>
-        Contact your Admin to perform remediation actions.
-      </div>
-    </div>
-
-    <!-- Users management (admin only) -->
-    <div class="sidebar-section" id="users-section">
-      <div class="sidebar-label">👥 Registered Users</div>
-      <div id="users-list">
-        <div style="font-size:0.74rem;color:var(--muted)">Loading…</div>
-      </div>
-    </div>
-
-    <!-- Quick stats (always visible) -->
-    <div class="sidebar-section" style="margin-top:auto">
-      <div class="sidebar-label">⚡ Quick Stats</div>
-      <div style="font-size:0.75rem;color:#a0aec0;line-height:1.8">
-        <div>Findings: <strong id="sb-findings">—</strong></div>
-        <div>Critical:  <strong id="sb-critical" style="color:var(--red)">—</strong></div>
-        <div>Waste/mo:  <strong id="sb-waste" style="color:var(--accent)">—</strong></div>
-      </div>
-    </div>
-
-  </nav>
-
-  <!-- Main content -->
-  <main id="main-content">
-
-    <!-- Error banner -->
-    <div id="error-banner">
-      <span id="error-banner-msg"></span>
-      <button onclick="hideBanner()">✕</button>
-    </div>
+    <div class="sb-logo">☁️ Cost Optimizer</div>
 
     <!-- Upload -->
-    <div class="upload-section">
-      <h2>📂 Upload AWS Billing Export</h2>
-      <div class="upload-row">
-        <div class="drop-zone" id="drop-zone">
-          <input type="file" id="csv-input" accept=".csv" onchange="onFileSelected(this)" />
-          <span class="file-hint">Drag &amp; drop <strong>.csv</strong> or click to browse</span>
-          <span class="file-chosen" id="file-name-label"></span>
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="uploadCSV()" id="ingest-btn" style="width:auto">Ingest</button>
-        <span id="upload-status"></span>
+    <div class="sb-sect">
+      <div class="sb-sect-label">📂 Upload CSV</div>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="csv-input" accept=".csv" onchange="onFilePick(this)" />
+        Drag &amp; drop or click
+        <span id="file-label"></span>
       </div>
+      <button class="btn btn-ghost btn-full btn-sm" style="margin-top:.4rem" onclick="uploadCSV()">⬆ Ingest</button>
+      <span id="upload-status"></span>
     </div>
 
-    <!-- Cards -->
-    <div class="cards">
+    <!-- Nav links -->
+    <div class="sb-nav">
+      <div class="nav-link active" onclick="scrollToSection('cards-row',this)">📊 Summary</div>
+      <div class="nav-link" onclick="scrollToSection('charts-row',this)">📈 Charts</div>
+      <div class="nav-link" onclick="scrollToSection('findings-row',this)">🔍 Findings</div>
+    </div>
+
+    <!-- Quick stats -->
+    <div class="sb-stats">
+      <div class="sb-sect-label">⚡ Quick Stats</div>
+      <div class="sb-stat">Findings: <strong id="sb-total">—</strong></div>
+      <div class="sb-stat">Critical: <strong id="sb-crit" style="color:var(--red)">—</strong></div>
+      <div class="sb-stat">Waste/mo: <strong id="sb-waste" style="color:var(--accent)">—</strong></div>
+    </div>
+
+    <!-- Users (admin only) -->
+    <div id="users-section" style="display:none">
+      <div class="sb-sect-label" style="padding:.5rem .85rem .25rem;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#718096">👥 Users</div>
+      <div class="sb-users-scroll" id="users-list"></div>
+    </div>
+
+    <div class="sb-spacer"></div>
+
+    <!-- Footer -->
+    <div class="sb-footer">
+      <div class="sb-user-info">
+        <div style="width:1.6rem;height:1.6rem;border-radius:50%;background:#FF9900;color:#232F3E;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0" id="user-av">?</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="user-name-lbl">—</div>
+          <div style="font-size:.62rem;color:#718096">
+            <span class="role-badge" id="role-badge-sb"></span>
+          </div>
+        </div>
+        <button class="btn btn-xs btn-ghost" onclick="logout()">Out</button>
+      </div>
+      <span id="clear-status"></span>
+      <button class="btn btn-xs btn-danger btn-full admin-only" onclick="confirmClear()" style="display:none">🗑 Clear All Data</button>
+    </div>
+  </nav>
+
+  <!-- ── Main content ────────────────────────────── -->
+  <div id="main-content">
+
+    <!-- Viewer banner — single compact line -->
+    <div id="viewer-banner">🔒 <strong>Viewer access.</strong> Contact your Admin to perform remediation.</div>
+
+    <!-- Cards 20vh -->
+    <div id="cards-row">
       <div class="card">
-        <div class="card-label">Total Monthly Waste</div>
-        <div class="card-value" id="card-waste">—</div>
-        <div class="card-sub">estimated USD/month</div>
+        <div class="card-label">Total Waste</div>
+        <div class="card-value" id="c-waste">—</div>
+        <div class="card-sub">USD / month</div>
       </div>
       <div class="card">
         <div class="card-label">Orphaned Resources</div>
-        <div class="card-value" id="card-resources">—</div>
-        <div class="card-sub">with active findings</div>
+        <div class="card-value" id="c-resources">—</div>
+        <div class="card-sub">active findings</div>
       </div>
       <div class="card">
-        <div class="card-label">Most Wasteful Type</div>
-        <div class="card-value" id="card-top-type" style="font-size:1rem;padding-top:0.3rem">—</div>
-        <div class="card-sub" id="card-top-type-sub"></div>
+        <div class="card-label">Top Waste Type</div>
+        <div class="card-value" id="c-top-type" style="font-size:.95rem;padding-top:.2rem">—</div>
+        <div class="card-sub" id="c-top-sub"></div>
       </div>
       <div class="card">
-        <div class="card-label">Pending Remediations</div>
-        <div class="card-value" id="card-pending">—</div>
-        <div class="card-sub">awaiting action</div>
+        <div class="card-label">Pending</div>
+        <div class="card-value" id="c-pending">—</div>
+        <div class="card-sub">to remediate</div>
       </div>
     </div>
 
-    <!-- Charts -->
-    <div class="charts">
-      <div class="chart-box">
-        <h3>Waste by Resource Type (USD/month)</h3>
-        <div class="chart-inner"><canvas id="bar-chart"></canvas></div>
+    <!-- Charts 40vh -->
+    <div id="charts-row">
+      <div class="chart-panel">
+        <h3>Waste by Resource Type (USD/mo)</h3>
+        <div class="chart-wrap"><canvas id="bar-chart"></canvas></div>
       </div>
-      <div class="chart-box">
+      <div class="chart-panel">
         <h3>Findings by Severity</h3>
-        <div class="chart-inner"><canvas id="doughnut-chart"></canvas></div>
+        <div class="chart-wrap"><canvas id="pie-chart"></canvas></div>
       </div>
     </div>
 
-    <!-- Findings -->
-    <div class="findings-section">
-      <div class="findings-header">
+    <!-- Findings 40vh -->
+    <div id="findings-row">
+      <div class="findings-hdr">
         <h2>🔍 Findings</h2>
         <div class="findings-actions">
-          <!-- Admin only -->
-          <button class="btn btn-warn btn-sm admin-only" id="bulk-btn" onclick="bulkRemediate()" style="display:none">
-            ⚡ Bulk Remediate All Pending
-          </button>
+          <button class="btn btn-warn btn-xs admin-only" id="bulk-btn" onclick="bulkRemediate()" style="display:none">⚡ Bulk Remediate</button>
         </div>
       </div>
       <div class="table-wrap">
         <table>
+          <colgroup>
+            <col class="c-name" /><col class="c-type" /><col class="c-region" />
+            <col class="c-sev" /><col class="c-waste" /><col class="c-status" />
+            <col class="c-cli" /><col class="c-action" />
+          </colgroup>
           <thead>
             <tr>
-              <th>#</th>
-              <th>Resource ID</th>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Region</th>
-              <th>Severity</th>
-              <th>Waste/mo</th>
-              <th>Status</th>
-              <th>CLI Command</th>
-              <th>Action</th>
+              <th>Name</th><th>Type</th><th>Region</th>
+              <th>Severity</th><th>Waste/mo</th><th>Status</th>
+              <th>CLI Command</th><th>Action</th>
             </tr>
           </thead>
           <tbody id="findings-body">
-            <tr><td colspan="10" class="empty-state">Loading…</td></tr>
+            <tr><td colspan="8" class="empty">Loading…</td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- Footer -->
-    <div class="main-footer">
-      <span id="clear-status"></span>
-      <!-- Admin only -->
-      <button class="btn btn-sm btn-danger admin-only" id="clear-btn" onclick="clearAllData()" style="display:none">
-        🗑 Clear All Data
-      </button>
-    </div>
-
-  </main>
+  </div><!-- #main-content -->
 </div><!-- #main-app -->
 
 <script>
-// ─────────────────────────────────────────────
-// State
-// ─────────────────────────────────────────────
-let JWT          = null;
-let currentRole  = null;   // 'Admin' | 'Viewer'
-let currentUser  = null;   // { id, username, email }
-let barChart     = null;
-let doughnutChart= null;
+/* ═══════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════ */
+let JWT = null, currentUser = null, currentRole = null;
+let barChart = null, pieChart = null;
 let selectedFile = null;
-const cliStore   = {};     // findingId → cli command string
-const userStore  = [];     // registered users in this session (sidebar)
+const cliStore  = {};
+const userStore = [];
+let modalResolve = null;
 
-// ─────────────────────────────────────────────
-// Utility
-// ─────────────────────────────────────────────
-function escHtml(s) {
-  return String(s)
+/* ═══════════════════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════════════════ */
+function toast(msg, type='ok') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+/* ═══════════════════════════════════════════════════
+   MODAL  (returns Promise<boolean>)
+   ═══════════════════════════════════════════════════ */
+function openModal(title, body) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').textContent  = body;
+  document.getElementById('modal-backdrop').classList.add('open');
+  return new Promise(res => {
+    modalResolve = res;
+    document.getElementById('modal-confirm-btn').onclick = () => { closeModal(true); };
+  });
+}
+function closeModal(confirmed = false) {
+  document.getElementById('modal-backdrop').classList.remove('open');
+  if (modalResolve) { const r = modalResolve; modalResolve = null; r(confirmed); }
+}
+
+/* ═══════════════════════════════════════════════════
+   SPINNER
+   ═══════════════════════════════════════════════════ */
+function showSpinner(lbl='Loading…') {
+  document.getElementById('spin-lbl').textContent = lbl;
+  document.getElementById('spinner').classList.add('on');
+}
+function hideSpinner() { document.getElementById('spinner').classList.remove('on'); }
+
+/* ═══════════════════════════════════════════════════
+   UTILITY
+   ═══════════════════════════════════════════════════ */
+function esc(s) {
+  return String(s ?? '')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
-function showSpinner(label) {
-  document.getElementById('spinner-label').textContent = label || 'Loading…';
-  document.getElementById('loading-overlay').classList.add('active');
+function scrollToSection(id, link) {
+  document.getElementById(id)?.scrollIntoView({ behavior:'smooth' });
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  link?.classList.add('active');
 }
-function hideSpinner() {
-  document.getElementById('loading-overlay').classList.remove('active');
-}
-function showBanner(msg) {
-  console.error('[Error]', msg);
-  document.getElementById('error-banner-msg').textContent = msg;
-  document.getElementById('error-banner').classList.add('active');
-}
-function hideBanner() {
-  document.getElementById('error-banner').classList.remove('active');
-}
-function setLoginError(m)    { document.getElementById('login-error').textContent    = m; }
-function setRegisterError(m) { document.getElementById('register-error').textContent = m; }
 
-// ─────────────────────────────────────────────
-// Auth toggle
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   AUTH FORM TOGGLE
+   ═══════════════════════════════════════════════════ */
 function showLogin() {
   document.getElementById('login-form').style.display    = '';
   document.getElementById('register-form').style.display = 'none';
-  setLoginError(''); setRegisterError('');
+  document.getElementById('login-err').textContent    = '';
+  document.getElementById('register-err').textContent = '';
 }
 function showRegister() {
   document.getElementById('login-form').style.display    = 'none';
   document.getElementById('register-form').style.display = '';
-  setLoginError(''); setRegisterError('');
+  document.getElementById('login-err').textContent    = '';
+  document.getElementById('register-err').textContent = '';
 }
 
-// ─────────────────────────────────────────────
-// Register
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   REGISTER
+   ═══════════════════════════════════════════════════ */
 async function doRegister() {
-  const username  = document.getElementById('reg-username').value.trim();
-  const email     = document.getElementById('reg-email').value.trim();
-  const password  = document.getElementById('reg-password').value;
-  const role      = document.getElementById('reg-role').value;
-  if (!username || !email || !password) { setRegisterError('Please fill in all fields.'); return; }
-
+  const username = document.getElementById('r-user').value.trim();
+  const email    = document.getElementById('r-email').value.trim();
+  const password = document.getElementById('r-pass').value;
+  const role     = document.getElementById('r-role').value;
+  const errEl    = document.getElementById('register-err');
+  if (!username || !email || !password) { errEl.textContent = 'Please fill in all fields.'; return; }
   const btn = document.getElementById('register-btn');
-  btn.disabled = true; btn.textContent = 'Creating…';
-  setRegisterError('');
-
+  btn.disabled = true; btn.textContent = 'Creating…'; errEl.textContent = '';
   try {
-    // Send role — backend ignores unknown fields (Pydantic default), so no breakage
     const res  = await fetch('/auth/register', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ username, email, password, role })
     });
     const data = await res.json();
-    if (!res.ok) { setRegisterError(data.detail || 'Registration failed.'); btn.disabled=false; btn.textContent='Create Account'; return; }
-
-    // Track for sidebar (session only)
+    if (!res.ok) { errEl.textContent = data.detail || 'Registration failed.'; btn.disabled=false; btn.textContent='Create Account'; return; }
     userStore.push({ username, email, requestedRole: role });
-
-    // Auto-login to discover actual user ID → determine real role
-    document.getElementById('login-username').value = username;
-    document.getElementById('login-password').value = password;
+    document.getElementById('l-user').value = username;
+    document.getElementById('l-pass').value = password;
     showLogin();
-    setLoginError('✅ Account created! Determining your role…');
+    document.getElementById('login-err').textContent = '✅ Account created! Signing in…';
     setTimeout(doLogin, 400);
-  } catch(e) {
-    setRegisterError('Network error.'); btn.disabled=false; btn.textContent='Create Account';
-  }
+  } catch(e) { errEl.textContent = 'Network error.'; btn.disabled=false; btn.textContent='Create Account'; }
 }
 
-// ─────────────────────────────────────────────
-// Login
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   LOGIN
+   ═══════════════════════════════════════════════════ */
 async function doLogin() {
-  const username = document.getElementById('login-username').value.trim();
-  const password = document.getElementById('login-password').value;
-  if (!username || !password) { setLoginError('Please fill in all fields.'); return; }
-
+  const username = document.getElementById('l-user').value.trim();
+  const password = document.getElementById('l-pass').value;
+  const errEl    = document.getElementById('login-err');
+  if (!username || !password) { errEl.textContent = 'Please fill in all fields.'; return; }
   const btn = document.getElementById('login-btn');
-  btn.disabled = true; btn.textContent = 'Signing in…';
-  setLoginError('');
-
+  btn.disabled = true; btn.textContent = 'Signing in…'; errEl.textContent = '';
   try {
-    console.log('[Auth] POST /auth/login →', username);
     const res  = await fetch('/auth/login', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ username, password })
     });
     const data = await res.json();
-    console.log('[Auth] Status:', res.status);
-
-    if (!res.ok) {
-      setLoginError(data.detail || 'Invalid username or password.');
-      btn.disabled=false; btn.textContent='Login'; return;
-    }
-
+    if (!res.ok) { errEl.textContent = data.detail || 'Invalid credentials.'; btn.disabled=false; btn.textContent='Login'; return; }
     JWT = data.access_token;
-    console.log('[Auth] JWT stored. Fetching /auth/me…');
-
-    // Fetch user info to determine role by user ID
-    const meRes  = await fetch('/auth/me', { headers: { 'Authorization': `Bearer ${JWT}` } });
-    const meData = await meRes.json();
-    currentUser  = meData;
-    console.log('[Auth] /auth/me →', meData);
-
-    // Role rule: user_id === 1 → Admin; all others → Viewer
-    // (First-registered user is always Admin — enforced client-side without backend changes)
-    currentRole = (meData.id === 1) ? 'Admin' : 'Viewer';
-    console.log('[Auth] Assigned role:', currentRole);
-
+    const me = await fetch('/auth/me', { headers:{ Authorization:`Bearer ${JWT}` } });
+    currentUser = await me.json();
+    currentRole = currentUser.id === 1 ? 'Admin' : 'Viewer';
+    // Update sidebar user info
+    const initials = username[0].toUpperCase();
+    document.getElementById('user-av').textContent         = initials;
+    document.getElementById('user-name-lbl').textContent   = username;
+    const rb = document.getElementById('role-badge-sb');
+    rb.textContent = currentRole;
+    rb.className   = `role-badge role-${currentRole.toLowerCase()}`;
     // Show app
-    document.getElementById('user-label').textContent = `👤 ${username}`;
-    document.getElementById('role-badge').textContent  = currentRole;
-    document.getElementById('role-badge').className    = `role-badge role-${currentRole.toLowerCase()}`;
-
     document.getElementById('auth-overlay').classList.add('hidden');
     document.getElementById('main-app').classList.add('visible');
-
     applyRoleUI();
     await refreshAll();
-
   } catch(e) {
-    console.error('[Auth] Error:', e);
-    setLoginError('Network error — is the server running?');
+    errEl.textContent = 'Network error — is the server running?';
     btn.disabled=false; btn.textContent='Login';
   }
 }
 
-// ─────────────────────────────────────────────
-// Role-based UI application
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   ROLE UI
+   ═══════════════════════════════════════════════════ */
 function applyRoleUI() {
   const isAdmin = currentRole === 'Admin';
-  console.log('[RBAC] Applying UI for role:', currentRole);
-
-  // Admin-only elements
-  document.querySelectorAll('.admin-only').forEach(el => {
-    el.style.display = isAdmin ? '' : 'none';
-  });
-
-  // Viewer banner
-  document.getElementById('viewer-banner').style.display  = isAdmin ? 'none' : '';
-  // Users section (admin)
-  document.getElementById('users-section').style.display  = isAdmin ? '' : 'none';
-
-  // Refresh sidebar user list (admin)
+  document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin ? '' : 'none');
+  const vb = document.getElementById('viewer-banner');
+  isAdmin ? vb.classList.remove('show') : vb.classList.add('show');
+  document.getElementById('users-section').style.display = isAdmin ? '' : 'none';
   if (isAdmin) renderSidebarUsers();
 }
 
-// ─────────────────────────────────────────────
-// Sidebar users list (admin, session-tracked)
-// ─────────────────────────────────────────────
 function renderSidebarUsers() {
-  const container = document.getElementById('users-list');
-  // Always show at least the current user
-  const all = userStore.length > 0 ? userStore : [{ username: currentUser.username, email: currentUser.email, requestedRole: 'Admin' }];
-  container.innerHTML = all.map((u, i) => {
-    const assignedRole = i === 0 ? 'Admin' : u.requestedRole;
-    const roleClass    = assignedRole === 'Admin' ? 'role-admin' : 'role-viewer';
-    return `<div class="sidebar-user-row">
-      <div class="u-avatar">${escHtml(u.username[0].toUpperCase())}</div>
-      <div>
-        <div class="u-name">${escHtml(u.username)}</div>
-        <div class="u-email">${escHtml(u.email)}</div>
+  const all = userStore.length
+    ? userStore
+    : [{ username: currentUser.username, email: currentUser.email, requestedRole:'Admin' }];
+  document.getElementById('users-list').innerHTML = all.map((u, i) => {
+    const r  = i === 0 ? 'Admin' : u.requestedRole;
+    const rc = r === 'Admin' ? 'role-admin' : 'role-viewer';
+    return `<div class="u-row">
+      <div class="u-av">${esc(u.username[0].toUpperCase())}</div>
+      <div class="u-info">
+        <div class="u-name">${esc(u.username)}</div>
+        <div class="u-email">${esc(u.email)}</div>
       </div>
-      <span class="role-badge ${roleClass}" style="font-size:0.6rem">${assignedRole}</span>
+      <span class="role-badge ${rc}" style="font-size:.55rem">${r}</span>
     </div>`;
   }).join('');
 }
 
-// ─────────────────────────────────────────────
-// Logout
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   LOGOUT
+   ═══════════════════════════════════════════════════ */
 function logout() {
-  JWT = null; currentRole = null; currentUser = null;
-  barChart && barChart.destroy(); barChart = null;
-  doughnutChart && doughnutChart.destroy(); doughnutChart = null;
-  Object.keys(cliStore).forEach(k => delete cliStore[k]);
+  JWT=null; currentUser=null; currentRole=null;
+  if(barChart){barChart.destroy();barChart=null;}
+  if(pieChart){pieChart.destroy();pieChart=null;}
+  Object.keys(cliStore).forEach(k=>delete cliStore[k]);
   document.getElementById('auth-overlay').classList.remove('hidden');
   document.getElementById('main-app').classList.remove('visible');
-  document.getElementById('login-username').value = '';
-  document.getElementById('login-password').value = '';
-  document.getElementById('login-btn').disabled = false;
-  document.getElementById('login-btn').textContent = 'Login';
-  setLoginError(''); hideBanner();
+  document.getElementById('l-user').value='';
+  document.getElementById('l-pass').value='';
+  const lb=document.getElementById('login-btn'); lb.disabled=false; lb.textContent='Login';
+  document.getElementById('login-err').textContent='';
 }
 
-// ─────────────────────────────────────────────
-// Upload
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   FILE UPLOAD
+   ═══════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   const dz = document.getElementById('drop-zone');
-  if (!dz) return;
-  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
-  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', ()  => dz.classList.remove('dragover'));
   dz.addEventListener('drop', e => {
     e.preventDefault(); dz.classList.remove('dragover');
     const f = e.dataTransfer.files[0];
     if (f && f.name.endsWith('.csv')) {
-      selectedFile = f; document.getElementById('file-name-label').textContent = f.name;
-    } else { setUploadStatus('Only .csv files accepted.', 'err'); }
+      selectedFile = f;
+      document.getElementById('file-label').textContent = f.name;
+    } else {
+      setUploadSt('Only .csv files accepted.', 'err');
+    }
   });
 });
-
-function onFileSelected(input) {
-  selectedFile = input.files[0] || null;
-  document.getElementById('file-name-label').textContent = selectedFile ? selectedFile.name : '';
+function onFilePick(inp) {
+  selectedFile = inp.files[0] || null;
+  document.getElementById('file-label').textContent = selectedFile ? selectedFile.name : '';
 }
-
-function setUploadStatus(msg, type) {
+function setUploadSt(msg, cls) {
   const el = document.getElementById('upload-status');
-  el.className = type ? `status-${type}` : '';
-  el.textContent = msg;
+  el.className = cls ? `s-${cls}` : ''; el.textContent = msg;
 }
 
 async function uploadCSV() {
-  if (!selectedFile) { setUploadStatus('Select a CSV file first.', 'err'); return; }
-  const btn = document.getElementById('ingest-btn');
-  btn.disabled = true; setUploadStatus('Uploading…', 'info');
-  const form = new FormData();
-  form.append('file', selectedFile);
+  if (!selectedFile) { setUploadSt('Select a CSV file first.','err'); return; }
+  setUploadSt('Uploading…','inf');
+  const form = new FormData(); form.append('file', selectedFile);
   try {
-    console.log('[Ingest] POST /ingest →', selectedFile.name);
-    const res  = await fetch('/ingest', {
-      method:'POST', headers:{'Authorization':`Bearer ${JWT}`}, body: form
-    });
+    const res  = await fetch('/ingest', { method:'POST', headers:{Authorization:`Bearer ${JWT}`}, body:form });
     const data = await res.json();
-    console.log('[Ingest]', res.status, data);
-    if (!res.ok) { setUploadStatus(`Error: ${data.detail||'Upload failed.'}`, 'err'); return; }
-    setUploadStatus(`✅ ${data.resources_ingested} resources · ${data.findings_detected} findings detected`, 'ok');
+    if (!res.ok) { setUploadSt(`Error: ${data.detail||'Upload failed.'}`, 'err'); toast(data.detail||'Upload failed.','err'); return; }
+    setUploadSt(`✅ ${data.resources_ingested} resources · ${data.findings_detected} findings`, 'ok');
+    toast(`Ingested ${data.resources_ingested} resources, ${data.findings_detected} findings`,'ok');
     await refreshAll();
-  } catch(e) {
-    console.error('[Ingest]', e); setUploadStatus('Network error.', 'err');
-  } finally { btn.disabled = false; }
+  } catch(e) { setUploadSt('Network error.','err'); toast('Upload network error.','err'); }
 }
 
-// ─────────────────────────────────────────────
-// Refresh all
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   REFRESH
+   ═══════════════════════════════════════════════════ */
 async function refreshAll() {
-  showSpinner('Loading dashboard data…'); hideBanner();
+  showSpinner('Loading dashboard…');
   try {
-    console.log('[Refresh] GET /summary + /findings with Bearer token');
     await Promise.all([refreshSummary(), refreshFindings()]);
-    console.log('[Refresh] Complete.');
-  } catch(e) {
-    console.error('[Refresh]', e); showBanner('Failed to load data: ' + e.message);
-  } finally { hideSpinner(); }
+  } catch(e) { toast('Failed to load data: '+e.message,'err'); }
+  finally { hideSpinner(); }
 }
 
 async function refreshSummary() {
-  const res = await fetch('/summary', { headers: {'Authorization':`Bearer ${JWT}`} });
-  console.log('[Summary] HTTP', res.status);
-  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(`/summary ${res.status}: ${e.detail||res.statusText}`); }
+  const res = await fetch('/summary', { headers:{Authorization:`Bearer ${JWT}`} });
+  if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(`/summary ${res.status}: ${e.detail||res.statusText}`); }
   const d = await res.json();
-  console.log('[Summary]', d);
-
-  document.getElementById('card-waste').textContent =
-    '$' + (d.total_waste_usd||0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-  document.getElementById('card-pending').textContent  = d.pending_remediations ?? '0';
-  const totalRes = Object.values(d.findings_by_resource_type||{}).reduce((a,b)=>a+b, 0);
-  document.getElementById('card-resources').textContent = totalRes;
+  document.getElementById('c-waste').textContent   = '$'+(d.total_waste_usd||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('c-pending').textContent = d.pending_remediations ?? '0';
+  const tot = Object.values(d.findings_by_resource_type||{}).reduce((a,b)=>a+b,0);
+  document.getElementById('c-resources').textContent = tot;
   const top = (d.top_3_wasteful_resources||[])[0];
-  document.getElementById('card-top-type').textContent    = top ? top.resource_type : '—';
-  document.getElementById('card-top-type-sub').textContent= top ? `$${(top.estimated_monthly_waste_usd||0).toFixed(2)}/mo` : '';
-
-  // Sidebar quick stats
+  document.getElementById('c-top-type').textContent = top ? top.resource_type : '—';
+  document.getElementById('c-top-sub').textContent  = top ? `$${(top.estimated_monthly_waste_usd||0).toFixed(2)}/mo` : '';
+  // Sidebar stats
   const bySev = d.findings_by_severity||{};
-  const total = Object.values(bySev).reduce((a,b)=>a+b,0);
-  document.getElementById('sb-findings').textContent = total;
-  document.getElementById('sb-critical').textContent = bySev.Critical||0;
-  document.getElementById('sb-waste').textContent    = '$'+(d.total_waste_usd||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-
-  renderDoughnutChart(bySev);
+  document.getElementById('sb-total').textContent = Object.values(bySev).reduce((a,b)=>a+b,0);
+  document.getElementById('sb-crit').textContent  = bySev.Critical||0;
+  document.getElementById('sb-waste').textContent = '$'+(d.total_waste_usd||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  renderPieChart(bySev);
 }
 
 async function refreshFindings() {
-  const res = await fetch('/findings', { headers: {'Authorization':`Bearer ${JWT}`} });
-  console.log('[Findings] HTTP', res.status);
-  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(`/findings ${res.status}: ${e.detail||res.statusText}`); }
+  const res = await fetch('/findings', { headers:{Authorization:`Bearer ${JWT}`} });
+  if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(`/findings ${res.status}: ${e.detail||res.statusText}`); }
   const findings = await res.json();
-  console.log('[Findings] count:', findings.length);
-  findings.forEach(f => { cliStore[f.id] = f.cli_command || ''; });
+  findings.forEach(f => { cliStore[f.id] = f.cli_command||''; });
   renderFindingsTable(findings);
-  const wasteByType = {};
+  // Bar chart from findings aggregated
+  const byType = {};
   findings.forEach(f => {
-    const t = (f.resource && f.resource.type) || 'Unknown';
-    wasteByType[t] = (wasteByType[t]||0) + (f.estimated_monthly_waste_usd||0);
+    const t = (f.resource&&f.resource.type)||'Unknown';
+    byType[t] = (byType[t]||0) + (f.estimated_monthly_waste_usd||0);
   });
-  renderBarChart(Object.keys(wasteByType), Object.values(wasteByType));
+  renderBarChart(Object.keys(byType), Object.values(byType));
 }
 
-// ─────────────────────────────────────────────
-// Charts
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   CHARTS
+   ═══════════════════════════════════════════════════ */
+/* Chart palette */
+const GRID_COLOR = '#e8edf2';
+const TICK_COLOR = '#687078';
+/* Distinct color per service type — cycling palette */
+const BAR_COLORS = [
+  '#FF9900', /* AWS Orange  */
+  '#1A9C3E', /* Green       */
+  '#0073bb', /* Blue        */
+  '#D13212', /* Red         */
+  '#6b46c1', /* Purple      */
+  '#0d7680', /* Teal        */
+  '#F0A30A', /* Yellow      */
+  '#e05d44', /* Coral       */
+  '#2e86de', /* Sky blue    */
+  '#8e44ad', /* Violet      */
+];
+
+const CHART_OPTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { position:'bottom', labels:{ color:TICK_COLOR, padding:8, font:{size:10} } } },
+};
+
+function clearCanvas(canvas, msg='No data') {
+  /* Draw a placeholder message directly on the canvas when there's nothing to chart */
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = '13px Segoe UI, sans-serif';
+  ctx.fillStyle = '#aab7b8';
+  ctx.textAlign = 'center';
+  ctx.fillText(msg, canvas.width / 2, canvas.height / 2);
+}
+
 function renderBarChart(labels, values) {
   const canvas = document.getElementById('bar-chart');
   if (!canvas) return;
+  /* Always destroy old instance first — fixes stale chart after clear */
   if (barChart) { barChart.destroy(); barChart = null; }
-  if (!labels.length) return;
+  if (!labels.length) { clearCanvas(canvas, 'No findings data'); return; }
+
+  /* One distinct color per service type, cycling through BAR_COLORS */
+  const bgColors  = labels.map((_,i) => BAR_COLORS[i % BAR_COLORS.length]);
+  const hovColors = bgColors.map(c => c + 'cc');
   barChart = new Chart(canvas.getContext('2d'), {
     type: 'bar',
     data: {
       labels,
-      datasets: [{
-        label: 'Waste USD',
-        data: values,
-        backgroundColor: ['#3182ce','#c05621','#6b46c1','#276749','#c53030'],
-        borderRadius: 4,
+      datasets:[{
+        label:'Waste USD', data:values,
+        backgroundColor: bgColors,
+        hoverBackgroundColor: hovColors,
+        borderRadius: 3,
       }]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      ...CHART_OPTS,
+      plugins: { ...CHART_OPTS.plugins, legend:{ display:false } },
       scales: {
-        x: { ticks: { color: '#a0aec0', font:{size:10} }, grid: { color: '#2d3748' } },
-        y: { ticks: { color: '#a0aec0', font:{size:10}, callback: v=>`$${v}` }, grid: { color: '#2d3748' } }
+        x:{ ticks:{ color:TICK_COLOR, font:{size:10} }, grid:{ color:GRID_COLOR } },
+        y:{ ticks:{ color:TICK_COLOR, font:{size:10}, callback:v=>`$${v}` }, grid:{ color:GRID_COLOR } }
       }
     }
   });
 }
 
-function renderDoughnutChart(sevData) {
-  const canvas = document.getElementById('doughnut-chart');
+function renderPieChart(sevData) {
+  const canvas = document.getElementById('pie-chart');
   if (!canvas) return;
-  if (doughnutChart) { doughnutChart.destroy(); doughnutChart = null; }
-  const order  = ['Critical','High','Medium','Low'];
-  const colors = { Critical:'#c53030', High:'#dd6b20', Medium:'#d69e2e', Low:'#3182ce' };
-  const labels = order.filter(k => (sevData[k]||0) > 0);
+  /* Always destroy old instance first — fixes stale chart after clear */
+  if (pieChart) { pieChart.destroy(); pieChart = null; }
+
+  const ORDER = ['Critical','High','Medium','Low'];
+  /* Four completely distinct hues — red / orange / blue / green */
+  const COLORS = {
+    Critical : '#D13212',   /* Red    */
+    High     : '#FF9900',   /* Orange */
+    Medium   : '#0073bb',   /* Blue   */
+    Low      : '#1A9C3E',   /* Green  */
+  };
+  const labels = ORDER.filter(k => (sevData[k]||0) > 0);
   const values = labels.map(k => sevData[k]);
-  if (!labels.length) return;
-  doughnutChart = new Chart(canvas.getContext('2d'), {
-    type: 'doughnut',
+  if (!labels.length) { clearCanvas(canvas, 'No severity data'); return; }
+
+  pieChart = new Chart(canvas.getContext('2d'), {
+    type: 'pie',
     data: {
       labels,
-      datasets: [{ data: values, backgroundColor: labels.map(l=>colors[l]), borderWidth: 2, borderColor: '#1a1f2e' }]
+      datasets:[{ data:values, backgroundColor:labels.map(l=>COLORS[l]), borderWidth:2, borderColor:'#fff' }]
     },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'bottom', labels: { color: '#a0aec0', padding: 10, font:{size:11} } }
-      }
-    }
+    options: CHART_OPTS,
   });
 }
 
-// ─────────────────────────────────────────────
-// Findings table — role-aware
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   FINDINGS TABLE  (FIX 1 + FIX 2)
+   ═══════════════════════════════════════════════════ */
 function renderFindingsTable(findings) {
-  const tbody  = document.getElementById('findings-body');
+  const tbody   = document.getElementById('findings-body');
   const isAdmin = currentRole === 'Admin';
-
   if (!findings.length) {
-    tbody.innerHTML = `<tr><td colspan="10" class="empty-state">No findings yet. Upload a billing CSV to get started.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">No findings. Upload a billing CSV to get started.</td></tr>`;
     return;
   }
-
   tbody.innerHTML = findings.map(f => {
-    const r    = f.resource || {};
-    const cli  = f.cli_command || '';
-    const short= cli.length > 38 ? cli.slice(0,38)+'…' : cli;
+    const r   = f.resource||{};
+    const cli = f.cli_command||'';
 
-    // Action cell: Admin → Remediate button; Viewer → copy CLI only
-    let actionCell;
+    /* FIX 1 — CLI column: truncated text + copy button + tooltip */
+    const cliCell = cli
+      ? `<td class="cli-cell">
+           <div class="cli-wrap">
+             <span class="cli-text" title="${esc(cli)}">${esc(cli)}</span>
+             <button class="copy-cli-btn" onclick="copyCmd(${f.id},this)" title="Copy full command">Copy</button>
+           </div>
+         </td>`
+      : `<td style="color:#aab7b8;font-size:.65rem">—</td>`;
+
+    /* FIX 2 — Action column */
+    let action;
     if (isAdmin) {
-      actionCell = f.status === 'pending'
-        ? `<button class="btn btn-xs btn-success" id="rem-btn-${f.id}" onclick="remediateOne(${f.id})">Remediate</button>`
-        : `<span style="color:#4a5568;font-size:0.72rem">${f.status}</span>`;
+      action = f.status === 'pending'
+        ? `<button class="btn btn-xs btn-success" id="rem-${f.id}" onclick="remediateOne(${f.id})">✓ Remediate</button>`
+        : `<span style="color:#687078;font-size:.66rem">${f.status}</span>`;
     } else {
-      // Viewer: only CLI copy, no remediate
-      actionCell = cli
-        ? `<button class="btn btn-xs btn-ghost" onclick="copyCmd(${f.id}, this)">📋 Copy CLI</button>`
+      action = cli
+        ? `<button class="btn btn-xs btn-ghost" onclick="copyCmd(${f.id},this)">📋 Copy CLI</button>`
         : '—';
     }
 
     return `<tr id="row-${f.id}">
-      <td>${f.id}</td>
-      <td><code style="font-size:0.68rem;color:#9ae6b4">${escHtml(r.id||'—')}</code></td>
-      <td style="max-width:8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(r.name||'—')}</td>
-      <td>${escHtml(r.type||'—')}</td>
-      <td>${escHtml(r.region||'—')}</td>
-      <td><span class="badge badge-${f.severity}">${f.severity}</span></td>
+      <td title="${esc(r.name)}">${esc(r.name||'—')}</td>
+      <td title="${esc(r.type)}">${esc(r.type||'—')}</td>
+      <td>${esc(r.region||'—')}</td>
+      <td class="wrap"><span class="badge badge-${f.severity}">${f.severity}</span></td>
       <td>$${(f.estimated_monthly_waste_usd||0).toFixed(2)}</td>
-      <td><span class="badge badge-${f.status}" id="status-badge-${f.id}">${f.status}</span></td>
-      <td>
-        <div class="cli-wrap">
-          <span class="cli-code" title="${escHtml(cli)}">${escHtml(short)||'—'}</span>
-          ${cli ? `<button class="copy-btn" onclick="copyCmd(${f.id}, this)" title="Copy">📋</button>` : ''}
-        </div>
-      </td>
-      <td>${actionCell}</td>
+      <td class="wrap"><span class="badge badge-${f.status}" id="sb-${f.id}">${f.status}</span></td>
+      ${cliCell}
+      <td class="wrap">${action}</td>
     </tr>`;
   }).join('');
 }
 
-// ─────────────────────────────────────────────
-// Copy CLI (safe — reads from cliStore)
-// ─────────────────────────────────────────────
-function copyCmd(findingId, btn) {
-  const text = cliStore[findingId] || '';
-  if (!text) return;
+/* ═══════════════════════════════════════════════════
+   COPY CLI
+   ═══════════════════════════════════════════════════ */
+function copyCmd(id, btn) {
+  const text = cliStore[id]||''; if (!text) return;
   const orig = btn.textContent;
-  const done = () => { btn.textContent = '✅'; setTimeout(()=>{ btn.textContent = orig; }, 1400); };
-  navigator.clipboard ? navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, btn, orig))
-                      : fallbackCopy(text, btn, orig);
+  const done = () => { btn.textContent='✅ Copied'; setTimeout(()=>btn.textContent=orig, 1400); };
+  navigator.clipboard
+    ? navigator.clipboard.writeText(text).then(done).catch(()=>fbCopy(text,btn,orig,done))
+    : fbCopy(text,btn,orig,done);
 }
-function fallbackCopy(text, btn, orig) {
-  const ta = document.createElement('textarea');
-  ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
-  document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-  btn.textContent = '✅'; setTimeout(()=>{ btn.textContent = orig; }, 1400);
+function fbCopy(text, btn, orig, done) {
+  const ta=document.createElement('textarea'); ta.value=text;
+  ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta);
+  ta.select(); try { document.execCommand('copy'); } catch(e){}
+  document.body.removeChild(ta); done();
 }
 
-// ─────────────────────────────────────────────
-// Remediate one (admin only)
-// ─────────────────────────────────────────────
-async function remediateOne(findingId) {
-  const btn   = document.getElementById(`rem-btn-${findingId}`);
-  const badge = document.getElementById(`status-badge-${findingId}`);
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+/* ═══════════════════════════════════════════════════
+   REMEDIATE ONE  (FIX 2 — hardened)
+   ═══════════════════════════════════════════════════ */
+async function remediateOne(id) {
+  /* Guard: no JWT → back to login */
+  if (!JWT) { toast('Session expired — please log in again.','err'); logout(); return; }
+
+  const ok = await openModal('Confirm Remediation',
+    `Remediate finding #${id}? This will call POST /remediate/${id} with your token. If no AWS credentials are present, a CLI command will be returned instead.`);
+  if (!ok) return;
+
+  const btn   = document.getElementById(`rem-${id}`);
+  const badge = document.getElementById(`sb-${id}`);
+  const row   = document.getElementById(`row-${id}`);
+
+  /* Show per-button spinner while waiting */
+  if (btn) { btn.disabled=true; btn.innerHTML='<span style="display:inline-block;width:.7rem;height:.7rem;border:2px solid #232F3E;border-top-color:transparent;border-radius:50%;animation:turn .5s linear infinite"></span>'; }
+
   try {
-    const res  = await fetch(`/remediate/${findingId}`, {
-      method:'POST', headers:{'Authorization':`Bearer ${JWT}`}
+    const res = await fetch(`/remediate/${id}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${JWT}`,
+        'Content-Type':  'application/json',
+      },
     });
+
+    /* 401/403 → session expired */
+    if (res.status === 401 || res.status === 403) {
+      toast('Session expired — please log in again.','err');
+      logout(); return;
+    }
+
     const data = await res.json();
+
     if (data.success) {
-      if (badge) { badge.className = 'badge badge-remediated'; badge.textContent = 'remediated'; }
-      if (btn)   btn.parentElement.innerHTML = '<span style="color:#4a5568;font-size:0.72rem">remediated</span>';
+      /* ✅ Success: green row, badge updated, button gone */
+      if (row)   row.classList.add('row-remediated');
+      if (badge) { badge.className='badge badge-remediated'; badge.textContent='remediated'; }
+      if (btn)   btn.parentElement.innerHTML='<span style="color:#1A9C3E;font-size:.66rem;font-weight:600">✓ Done</span>';
+      toast(`Finding #${id} remediated successfully.`, 'ok');
       await refreshSummary();
     } else {
-      if (badge) { badge.className = 'badge badge-failed'; badge.textContent = 'failed'; }
-      if (btn)   { btn.disabled = false; btn.textContent = 'Retry'; }
-      const cli = data.cli_alternative || cliStore[findingId] || '';
-      showBanner(cli ? `No AWS credentials. Run: ${cli}` : (data.message||'Remediation failed.'));
+      /* ❌ Failure: badge failed, button retry, error toast */
+      if (badge) { badge.className='badge badge-failed'; badge.textContent='failed'; }
+      if (btn)   { btn.disabled=false; btn.textContent='↺ Retry'; }
+      const cli = data.cli_alternative || cliStore[id] || '';
+      if (cli) {
+        toast(`No AWS credentials — use CLI command (logged to console).`, 'err');
+        console.info(`[CLI for finding #${id}]`, cli);
+      } else {
+        toast(data.message || 'Remediation failed.', 'err');
+      }
     }
   } catch(e) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Error'; }
-    showBanner('Remediation error: ' + e.message);
+    if (btn) { btn.disabled=false; btn.textContent='✓ Retry'; }
+    toast('Network error during remediation: ' + e.message, 'err');
   }
 }
 
-// ─────────────────────────────────────────────
-// Bulk remediate (admin only)
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   BULK REMEDIATE
+   ═══════════════════════════════════════════════════ */
 async function bulkRemediate() {
-  const pendingIds = [];
-  document.querySelectorAll('[id^="rem-btn-"]').forEach(btn => {
-    if (!btn.disabled) pendingIds.push(parseInt(btn.id.replace('rem-btn-','')));
-  });
-  if (!pendingIds.length) { showBanner('No pending findings to remediate.'); return; }
-  if (!confirm(`Bulk remediate ${pendingIds.length} pending findings?`)) return;
-
-  showSpinner(`Remediating ${pendingIds.length} findings…`);
+  const ids=[];
+  document.querySelectorAll('[id^="rem-"]').forEach(b=>{ if(!b.disabled) ids.push(parseInt(b.id.replace('rem-',''))); });
+  if (!ids.length) { toast('No pending findings.','inf'); return; }
+  const ok = await openModal('Bulk Remediate', `Remediate all ${ids.length} pending findings?`);
+  if (!ok) return;
+  showSpinner(`Remediating ${ids.length} findings…`);
   try {
     const res  = await fetch('/remediate/bulk', {
-      method:'POST', headers:{'Authorization':`Bearer ${JWT}`,'Content-Type':'application/json'},
-      body: JSON.stringify({ finding_ids: pendingIds })
+      method:'POST', headers:{Authorization:`Bearer ${JWT}`,'Content-Type':'application/json'},
+      body: JSON.stringify({ finding_ids:ids })
     });
     const data = await res.json();
-    const msg  = `Bulk complete: ${data.succeeded} succeeded, ${data.failed} failed.`;
-    document.getElementById('clear-status').textContent = msg;
+    toast(`Bulk: ${data.succeeded} succeeded · ${data.failed} failed`, data.failed ? 'err' : 'ok');
     await refreshAll();
-  } catch(e) {
-    showBanner('Bulk remediation error: ' + e.message);
-  } finally { hideSpinner(); }
+  } catch(e) { toast('Bulk error: '+e.message,'err'); }
+  finally { hideSpinner(); }
 }
 
-// ─────────────────────────────────────────────
-// Clear all data (admin only)
-// ─────────────────────────────────────────────
-async function clearAllData() {
-  if (!confirm('Clear ALL resources, findings, and commands? Cannot be undone.')) return;
+/* ═══════════════════════════════════════════════════
+   CLEAR DATA
+   ═══════════════════════════════════════════════════ */
+async function confirmClear() {
+  /* Guard: no JWT → back to login */
+  if (!JWT) { toast('Session expired — please log in again.', 'err'); logout(); return; }
+
+  const ok = await openModal('Clear All Data', 'This will permanently delete all resources, findings, and remediation commands. Cannot be undone.');
+  if (!ok) return;
+
+  showSpinner('Clearing data…');
   try {
-    const res  = await fetch('/data', { method:'DELETE', headers:{'Authorization':`Bearer ${JWT}`} });
+    const res  = await fetch('/data', {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${JWT}` },
+    });
+
+    /* 401/403 → session expired */
+    if (res.status === 401 || res.status === 403) {
+      toast('Session expired — please log in again.', 'err');
+      logout(); return;
+    }
+
     const data = await res.json();
-    document.getElementById('clear-status').textContent = data.message || 'Cleared.';
+
+    /* Any other non-2xx → surface the error */
+    if (!res.ok) {
+      toast(`Clear failed: ${data.detail || res.statusText}`, 'err');
+      document.getElementById('clear-status').textContent = 'Clear failed.';
+      return;
+    }
+
+    /* ✅ Backend confirmed clear — reset UI immediately, don't wait for refreshAll */
+    console.log('[Clear] DELETE /data succeeded:', data.message);
+
+    /* 1. Reset upload state */
     selectedFile = null;
-    document.getElementById('file-name-label').textContent = '';
+    document.getElementById('file-label').textContent = '';
     document.getElementById('csv-input').value = '';
-    setUploadStatus('', '');
+    setUploadSt('', '');
+    document.getElementById('clear-status').textContent = 'Cleared.';
     Object.keys(cliStore).forEach(k => delete cliStore[k]);
-    await refreshAll();
-  } catch(e) { document.getElementById('clear-status').textContent = 'Error: ' + e.message; }
+
+    /* 2. Force summary cards to zero immediately */
+    document.getElementById('c-waste').textContent     = '$0.00';
+    document.getElementById('c-resources').textContent = '0';
+    document.getElementById('c-pending').textContent   = '0';
+    document.getElementById('c-top-type').textContent  = '—';
+    document.getElementById('c-top-sub').textContent   = '';
+    document.getElementById('sb-total').textContent    = '0';
+    document.getElementById('sb-crit').textContent     = '0';
+    document.getElementById('sb-waste').textContent    = '$0.00';
+
+    /* 3. Force findings table to empty state immediately */
+    document.getElementById('findings-body').innerHTML =
+      '<tr><td colspan="8" class="empty">No findings. Upload a billing CSV to get started.</td></tr>';
+
+    /* 4. Destroy and blank the charts immediately */
+    const barCanvas = document.getElementById('bar-chart');
+    const pieCanvas = document.getElementById('pie-chart');
+    if (barChart) { barChart.destroy(); barChart = null; }
+    if (pieChart) { pieChart.destroy(); pieChart = null; }
+    if (barCanvas) clearCanvas(barCanvas, 'No findings data');
+    if (pieCanvas) clearCanvas(pieCanvas, 'No severity data');
+
+    toast('All data cleared.', 'ok');
+
+    /* 5. Then sync from server (best-effort — UI is already empty) */
+    try { await refreshAll(); } catch(e) { console.warn('[Clear] refreshAll after clear failed:', e); }
+  } catch(e) {
+    toast('Network error during clear: ' + e.message, 'err');
+  } finally {
+    hideSpinner();
+  }
 }
 
-// ─────────────────────────────────────────────
-// Enter key on auth forms
-// ─────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════
+   KEYBOARD SHORTCUTS
+   ═══════════════════════════════════════════════════ */
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Enter') return;
-  if (document.getElementById('auth-overlay').classList.contains('hidden')) return;
-  document.getElementById('register-form').style.display === 'none' ? doLogin() : doRegister();
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Enter' && !document.getElementById('auth-overlay').classList.contains('hidden')) {
+    document.getElementById('register-form').style.display === 'none' ? doLogin() : doRegister();
+  }
 });
 </script>
 </body>
