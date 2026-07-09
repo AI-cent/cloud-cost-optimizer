@@ -4,16 +4,21 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
+from logger import setup_logging
 from database import init_db
 from api.routes import router
 
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Application starting up — initialising database")
     init_db()
+    logger.info("Database initialised. Cloud Cost Optimizer is ready.")
     yield
+    logger.info("Application shutting down.")
 
 
 app = FastAPI(

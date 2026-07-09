@@ -49,7 +49,7 @@ def _parse_cost(raw: str, resource_id: str) -> float:
         return 0.0
 
 
-def parse_and_ingest(file_content: bytes, db: Session) -> Tuple[List[Resource], int]:
+def parse_and_ingest(file_content: bytes, db: Session, filename: str = "unknown") -> Tuple[List[Resource], int]:
     """
     Parse CSV bytes and upsert resources.
 
@@ -60,6 +60,11 @@ def parse_and_ingest(file_content: bytes, db: Session) -> Tuple[List[Resource], 
         ValueError  — if file is empty or required columns are missing entirely
         UnicodeDecodeError — if file is not valid UTF-8
     """
+    from datetime import datetime as _dt
+    ingest_start = _dt.utcnow()
+    logger.info("Ingestion started | file='%s' | size=%d bytes | timestamp=%s",
+                filename, len(file_content), ingest_start.isoformat())
+
     try:
         text = file_content.decode("utf-8")
     except UnicodeDecodeError as e:
@@ -150,9 +155,18 @@ def parse_and_ingest(file_content: bytes, db: Session) -> Tuple[List[Resource], 
         except Exception:
             pass  # non-fatal; ID already assigned
 
+    from datetime import datetime as _dt
+    elapsed = (_dt.utcnow() - ingest_start).total_seconds()
+
     if skipped:
-        logger.warning("Ingestion complete: %d rows upserted, %d rows skipped.", len(upserted), skipped)
+        logger.warning(
+            "Ingestion complete | file='%s' | rows_upserted=%d | rows_skipped=%d | elapsed=%.2fs",
+            filename, len(upserted), skipped, elapsed,
+        )
     else:
-        logger.info("Ingestion complete: %d rows upserted, 0 skipped.", len(upserted))
+        logger.info(
+            "Ingestion complete | file='%s' | rows_upserted=%d | rows_skipped=0 | elapsed=%.2fs",
+            filename, len(upserted), elapsed,
+        )
 
     return upserted, skipped

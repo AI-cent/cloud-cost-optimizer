@@ -27,22 +27,25 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 async def ingest(file: UploadFile = File(...), db: Session = Depends(get_db)):
     # 1. Validate file extension
     if not (file.filename or "").lower().endswith(".csv"):
+        logger.error("POST /ingest | 400 invalid_file_type | filename='%s'", file.filename)
         return _error(400, "invalid_file_type", "Only CSV files are accepted.")
 
     # Read content
     try:
         content = await file.read()
     except Exception as exc:
-        logger.error("Failed to read uploaded file: %s", exc)
+        logger.error("POST /ingest | 500 file_read_error | %s", exc)
         return _error(500, "file_read_error", "Could not read the uploaded file.")
 
     # 2. Reject empty files
     if not content:
+        logger.error("POST /ingest | 400 empty_file | filename='%s'", file.filename)
         return _error(400, "empty_file", "Uploaded file is empty.")
 
     # 3. Enforce 10 MB size cap
     if len(content) > MAX_UPLOAD_BYTES:
         size_mb = len(content) / (1024 * 1024)
+        logger.error("POST /ingest | 400 file_too_large | size=%.1f MB | filename='%s'", size_mb, file.filename)
         return _error(
             400,
             "file_too_large",
@@ -51,7 +54,7 @@ async def ingest(file: UploadFile = File(...), db: Session = Depends(get_db)):
 
     # 4 & 5. Parse — validates required columns; skips non-numeric MonthlyCost rows
     try:
-        resources, skipped = parse_and_ingest(content, db)
+        resources, skipped = parse_and_ingest(content, db, filename=file.filename or "upload.csv")
     except ValueError as exc:
         # Missing/invalid columns → 400 (bad client input)
         return _error(400, "csv_validation_error", str(exc))

@@ -97,6 +97,12 @@ def generate_command(finding: Finding, resource: Resource) -> RemediationCommand
         )
         command_text = "# Command generation failed — see server logs"
 
+    preview = command_text[:80] + ("…" if len(command_text) > 80 else "")
+    logger.info(
+        "Remediation command generated | finding_id=%s | type=%s | preview='%s'",
+        finding.id, finding_type, preview,
+    )
+
     return RemediationCommand(
         finding_id=finding.id,
         command_type="aws_cli",

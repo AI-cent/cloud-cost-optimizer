@@ -148,6 +148,16 @@ def detect_all(db: Session) -> List[Finding]:
                 db.add(resource_finding)
                 db.flush()  # get finding.id before generating command
 
+                logger.info(
+                    "Finding detected | resource_id='%s' | resource_type='%s' | "
+                    "finding_type='%s' | severity=%s | estimated_waste=$%.2f/mo",
+                    resource.resource_id,
+                    resource.resource_type,
+                    resource_finding.finding_type,
+                    resource_finding.severity,
+                    resource_finding.estimated_monthly_waste_usd,
+                )
+
                 cmd: RemediationCommand = generate_command(
                     finding=resource_finding, resource=resource
                 )
