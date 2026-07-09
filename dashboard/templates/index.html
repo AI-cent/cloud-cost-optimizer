@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cloud Cost Optimizer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+
+    /* ── Auth overlay ── */
+    #auth-overlay {
+      position: fixed; inset: 0; background: #0f1117;
+      display: flex; align-items: center; justify-content: center; z-index: 100;
+    }
+    .auth-card {
+      background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px;
+      padding: 2rem; width: 100%; max-width: 420px;
+    }
+    .auth-card h1 { font-size: 1.5rem; margin-bottom: 0.25rem; color: #63b3ed; }
+    .auth-card p { font-size: 0.85rem; color: #718096; margin-bottom: 1.5rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.8rem; color: #a0aec0; margin-bottom: 0.3rem; }
+    .form-group input {
+      width: 100%; padding: 0.6rem 0.75rem; background: #0f1117; border: 1px solid #2d3748;
+      border-radius: 6px; color: #e2e8f0; font-size: 0.9rem; outline: none;
+    }
+    .form-group input:focus { border-color: #63b3ed; }
+    .btn {
+      display: inline-block; padding: 0.6rem 1.2rem; border-radius: 6px; border: none;
+      cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #3182ce; color: #fff; width: 100%; margin-top: 0.5rem; }
+    .btn-danger  { background: #c53030; color: #fff; }
+    .btn-success { background: #276749; color: #fff; }
+    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+    .auth-toggle { text-align: center; margin-top: 1rem; font-size: 0.82rem; color: #718096; }
+    .auth-toggle span { color: #63b3ed; cursor: pointer; text-decoration: underline; }
+    #auth-error { color: #fc8181; font-size: 0.82rem; margin-top: 0.5rem; min-height: 1.2rem; }
+
+    /* ── Main layout ── */
+    #main-app { display: none; }
+    header {
+      background: #1a1f2e; border-bottom: 1px solid #2d3748;
+      padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between;
+    }
+    header h1 { font-size: 1.2rem; color: #63b3ed; }
+    .header-right { display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; color: #a0aec0; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+
+    /* ── Upload section ── */
+    .upload-section {
+      background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px;
+      padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+    }
+    .upload-section h2 { font-size: 1rem; color: #e2e8f0; margin-bottom: 1rem; }
+    .drop-zone {
+      border: 2px dashed #2d3748; border-radius: 8px; padding: 1.5rem;
+      text-align: center; color: #718096; cursor: pointer; transition: border-color 0.2s;
+      position: relative;
+    }
+    .drop-zone.dragover { border-color: #63b3ed; background: rgba(99,179,237,0.05); }
+    .drop-zone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .drop-zone p { font-size: 0.85rem; pointer-events: none; }
+    .drop-zone .file-name { color: #63b3ed; font-weight: 600; margin-top: 0.3rem; }
+    .upload-controls { display: flex; align-items: center; gap: 1rem; margin-top: 0.75rem; flex-wrap: wrap; }
+    #upload-status { font-size: 0.82rem; }
+    .status-ok   { color: #68d391; }
+    .status-err  { color: #fc8181; }
+    .status-info { color: #63b3ed; }
+
+    /* ── Summary cards ── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .card {
+      background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px;
+      padding: 1.2rem 1.5rem;
+    }
+    .card-label { font-size: 0.75rem; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; }
+    .card-value { font-size: 2rem; font-weight: 700; color: #63b3ed; margin-top: 0.25rem; }
+    .card-sub { font-size: 0.78rem; color: #a0aec0; margin-top: 0.15rem; }
+
+    /* ── Charts ── */
+    .charts { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    @media (max-width: 700px) { .charts { grid-template-columns: 1fr; } }
+    .chart-box {
+      background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 1.25rem;
+    }
+    .chart-box h3 { font-size: 0.85rem; color: #a0aec0; margin-bottom: 1rem; }
+    .chart-box canvas { max-height: 260px; }
+
+    /* ── Findings table ── */
+    .table-section { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 1.25rem; }
+    .table-section h2 { font-size: 1rem; margin-bottom: 1rem; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th { background: #0f1117; color: #718096; text-align: left; padding: 0.6rem 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72rem; }
+    td { padding: 0.65rem 0.75rem; border-top: 1px solid #2d3748; vertical-align: middle; }
+    tr:hover td { background: rgba(99,179,237,0.04); }
+    .badge {
+      display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px;
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    }
+    .badge-Critical { background: #742a2a; color: #fc8181; }
+    .badge-High     { background: #7b341e; color: #f6ad55; }
+    .badge-Medium   { background: #744210; color: #fbd38d; }
+    .badge-Low      { background: #1a365d; color: #90cdf4; }
+    .badge-pending     { background: #2d3748; color: #a0aec0; }
+    .badge-remediated  { background: #1c4532; color: #68d391; }
+    .badge-failed      { background: #742a2a; color: #fc8181; }
+
+    .cli-wrap { display: flex; align-items: center; gap: 0.4rem; }
+    .cli-code {
+      font-family: monospace; font-size: 0.72rem; color: #9ae6b4;
+      background: #0f1117; padding: 0.25rem 0.5rem; border-radius: 4px;
+      max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: inline-block; cursor: pointer; title: attr(data-full);
+    }
+    .copy-btn { background: none; border: none; cursor: pointer; color: #718096; font-size: 0.75rem; padding: 0; }
+    .copy-btn:hover { color: #63b3ed; }
+
+    .footer { margin-top: 2rem; text-align: center; }
+    .btn-clear { background: #742a2a; color: #fc8181; border: 1px solid #c53030; }
+    #clear-status { font-size: 0.8rem; color: #a0aec0; margin-top: 0.5rem; }
+
+    .empty-state { text-align: center; color: #4a5568; padding: 2rem; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════ AUTH OVERLAY ═══════════════════════════════════ -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <h1>☁️ Cloud Cost Optimizer</h1>
+    <p>Sign in to manage your AWS spending</p>
+
+    <!-- Login Form -->
+    <div id="login-form">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="login-username" placeholder="your-username" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <div id="auth-error"></div>
+      <button class="btn btn-primary" onclick="doLogin()">Login</button>
+      <div class="auth-toggle">Don't have an account? <span onclick="showRegister()">Register</span></div>
+    </div>
+
+    <!-- Register Form -->
+    <div id="register-form" style="display:none">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="reg-username" placeholder="your-username" />
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="reg-password" placeholder="••••••••" />
+      </div>
+      <div id="auth-error"></div>
+      <button class="btn btn-primary" onclick="doRegister()">Create Account</button>
+      <div class="auth-toggle">Already have an account? <span onclick="showLogin()">Login</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ MAIN APP ═══════════════════════════════════ -->
+<div id="main-app">
+  <header>
+    <h1>☁️ Cloud Cost Optimizer</h1>
+    <div class="header-right">
+      <span id="user-label"></span>
+      <button class="btn btn-sm btn-danger" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- Upload -->
+    <div class="upload-section">
+      <h2>📂 Upload AWS Billing Export</h2>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="csv-input" accept=".csv" onchange="onFileSelected(this)" />
+        <p>Drag & drop a <strong>.csv</strong> file here, or click to browse</p>
+        <div class="file-name" id="file-name-label"></div>
+      </div>
+      <div class="upload-controls">
+        <button class="btn btn-primary" onclick="uploadCSV()" style="width:auto">Ingest</button>
+        <span id="upload-status"></span>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="cards">
+      <div class="card">
+        <div class="card-label">Total Monthly Waste</div>
+        <div class="card-value" id="card-waste">$0</div>
+        <div class="card-sub">estimated USD/month</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Orphaned Resources</div>
+        <div class="card-value" id="card-resources">0</div>
+        <div class="card-sub">with active findings</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Most Wasteful Type</div>
+        <div class="card-value" style="font-size:1.2rem;padding-top:0.4rem" id="card-top-type">—</div>
+        <div class="card-sub" id="card-top-type-sub"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">Pending Remediations</div>
+        <div class="card-value" id="card-pending">0</div>
+        <div class="card-sub">awaiting action</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts">
+      <div class="chart-box">
+        <h3>Waste by Resource Type (USD/month)</h3>
+        <canvas id="bar-chart"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Findings by Severity</h3>
+        <canvas id="doughnut-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Findings Table -->
+    <div class="table-section">
+      <h2>🔍 Findings</h2>
+      <div class="table-wrap">
+        <table id="findings-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Resource ID</th>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Region</th>
+              <th>Severity</th>
+              <th>Waste (USD)</th>
+              <th>Status</th>
+              <th>CLI Command</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="findings-body">
+            <tr><td colspan="10" class="empty-state">No findings yet. Upload a billing CSV to get started.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <button class="btn btn-clear" onclick="clearAllData()">🗑 Clear All Data</button>
+      <div id="clear-status"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ── State ──
+  let JWT = null;
+  let barChart = null;
+  let doughnutChart = null;
+  let selectedFile = null;
+
+  // ── Auth helpers ──
+  function showLogin() {
+    document.getElementById('login-form').style.display = '';
+    document.getElementById('register-form').style.display = 'none';
+    setAuthError('');
+  }
+  function showRegister() {
+    document.getElementById('login-form').style.display = 'none';
+    document.getElementById('register-form').style.display = '';
+    setAuthError('');
+  }
+  function setAuthError(msg) {
+    document.querySelectorAll('#auth-error').forEach(el => el.textContent = msg);
+  }
+
+  async function doLogin() {
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!username || !password) { setAuthError('Please fill in all fields.'); return; }
+    try {
+      const res = await fetch('/auth/login', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (!res.ok) { setAuthError(data.detail || 'Login failed.'); return; }
+      JWT = data.access_token;
+      document.getElementById('user-label').textContent = `👤 ${username}`;
+      document.getElementById('auth-overlay').style.display = 'none';
+      document.getElementById('main-app').style.display = '';
+      refreshAll();
+    } catch(e) { setAuthError('Network error. Is the server running?'); }
+  }
+
+  async function doRegister() {
+    const username = document.getElementById('reg-username').value.trim();
+    const email    = document.getElementById('reg-email').value.trim();
+    const password = document.getElementById('reg-password').value;
+    if (!username || !email || !password) { setAuthError('Please fill in all fields.'); return; }
+    try {
+      const res = await fetch('/auth/register', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username, email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) { setAuthError(data.detail || 'Registration failed.'); return; }
+      // Auto-login after register
+      document.getElementById('login-username').value = username;
+      document.getElementById('login-password').value = password;
+      showLogin();
+      setAuthError('✅ Account created! Logging you in…');
+      setTimeout(doLogin, 600);
+    } catch(e) { setAuthError('Network error.'); }
+  }
+
+  function logout() {
+    JWT = null;
+    document.getElementById('auth-overlay').style.display = '';
+    document.getElementById('main-app').style.display = 'none';
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+    setAuthError('');
+  }
+
+  // ── Upload ──
+  const dropZone = document.getElementById('drop-zone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('dragover');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.endsWith('.csv')) { selectedFile = f; document.getElementById('file-name-label').textContent = f.name; }
+    else { setUploadStatus('Only .csv files are accepted.', 'err'); }
+  });
+
+  function onFileSelected(input) {
+    selectedFile = input.files[0] || null;
+    document.getElementById('file-name-label').textContent = selectedFile ? selectedFile.name : '';
+  }
+
+  function setUploadStatus(msg, type='info') {
+    const el = document.getElementById('upload-status');
+    el.className = `status-${type}`;
+    el.textContent = msg;
+  }
+
+  async function uploadCSV() {
+    if (!selectedFile) { setUploadStatus('Please select a CSV file first.', 'err'); return; }
+    setUploadStatus('Uploading…', 'info');
+    const form = new FormData();
+    form.append('file', selectedFile);
+    try {
+      const res = await fetch('/ingest', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${JWT}` },
+        body: form
+      });
+      const data = await res.json();
+      if (!res.ok) { setUploadStatus(`Error: ${data.detail || 'Upload failed.'}`, 'err'); return; }
+      setUploadStatus(`✅ Success! ${data.resources_ingested} resources ingested, ${data.findings_detected} findings detected.`, 'ok');
+      refreshAll();
+    } catch(e) { setUploadStatus('Network error during upload.', 'err'); }
+  }
+
+  // ── Refresh ──
+  async function refreshAll() {
+    await Promise.all([refreshSummary(), refreshFindings()]);
+  }
+
+  async function refreshSummary() {
+    try {
+      const res = await fetch('/summary', { headers: { 'Authorization': `Bearer ${JWT}` } });
+      if (!res.ok) return;
+      const d = await res.json();
+
+      document.getElementById('card-waste').textContent = `$${d.total_waste_usd.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+      document.getElementById('card-pending').textContent = d.pending_remediations;
+
+      const types = d.findings_by_resource_type;
+      const totalResources = Object.values(types).reduce((a,b)=>a+b, 0);
+      document.getElementById('card-resources').textContent = totalResources;
+
+      // Most wasteful type
+      const top = d.top_3_wasteful_resources[0];
+      document.getElementById('card-top-type').textContent = top ? top.resource_type : '—';
+      document.getElementById('card-top-type-sub').textContent = top ? `$${(top.estimated_monthly_waste_usd||0).toFixed(2)}/mo` : '';
+
+      // Bar chart
+      const barLabels = Object.keys(types);
+      // We need waste by type — approximate from summary
+      const sevData = d.findings_by_severity;
+      renderBarChart(barLabels, barLabels.map(k => types[k]));
+      renderDoughnutChart(sevData);
+    } catch(e) { console.error(e); }
+  }
+
+  async function refreshFindings() {
+    try {
+      const res = await fetch('/findings', { headers: { 'Authorization': `Bearer ${JWT}` } });
+      if (!res.ok) return;
+      const findings = await res.json();
+      renderFindingsTable(findings);
+      // Re-render bar chart with actual waste per type
+      const wasteByType = {};
+      for (const f of findings) {
+        const t = f.resource?.type || 'Unknown';
+        wasteByType[t] = (wasteByType[t] || 0) + (f.estimated_monthly_waste_usd || 0);
+      }
+      renderBarChart(Object.keys(wasteByType), Object.values(wasteByType));
+    } catch(e) { console.error(e); }
+  }
+
+  function renderBarChart(labels, values) {
+    const ctx = document.getElementById('bar-chart').getContext('2d');
+    if (barChart) barChart.destroy();
+    barChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Monthly Waste (USD)',
+          data: values,
+          backgroundColor: ['#3182ce','#c05621','#6b46c1','#276749','#c53030'],
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#a0aec0' }, grid: { color: '#2d3748' } },
+          y: { ticks: { color: '#a0aec0', callback: v=>`$${v}` }, grid: { color: '#2d3748' } }
+        }
+      }
+    });
+  }
+
+  function renderDoughnutChart(sevData) {
+    const ctx = document.getElementById('doughnut-chart').getContext('2d');
+    if (doughnutChart) doughnutChart.destroy();
+    const order = ['Critical','High','Medium','Low'];
+    const colors = { Critical:'#c53030', High:'#dd6b20', Medium:'#d69e2e', Low:'#3182ce' };
+    const labels = order.filter(k => sevData[k]);
+    const values = labels.map(k => sevData[k]);
+    doughnutChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{ data: values, backgroundColor: labels.map(l=>colors[l]), borderWidth: 2, borderColor: '#1a1f2e' }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: '#a0aec0', padding: 16, font: { size: 12 } } }
+        }
+      }
+    });
+  }
+
+  function renderFindingsTable(findings) {
+    const tbody = document.getElementById('findings-body');
+    if (!findings.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No findings yet. Upload a billing CSV to get started.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = findings.map(f => {
+      const r = f.resource || {};
+      const cli = f.cli_command || '';
+      const short = cli.length > 45 ? cli.slice(0,45)+'…' : cli;
+      return `
+        <tr id="row-${f.id}">
+          <td>${f.id}</td>
+          <td><code style="font-size:0.75rem;color:#9ae6b4">${r.id||'—'}</code></td>
+          <td>${r.name||'—'}</td>
+          <td>${r.type||'—'}</td>
+          <td>${r.region||'—'}</td>
+          <td><span class="badge badge-${f.severity}">${f.severity}</span></td>
+          <td>$${(f.estimated_monthly_waste_usd||0).toFixed(2)}</td>
+          <td><span class="badge badge-${f.status}" id="status-badge-${f.id}">${f.status}</span></td>
+          <td>
+            <div class="cli-wrap">
+              <span class="cli-code" title="${cli}">${short||'—'}</span>
+              ${cli ? `<button class="copy-btn" onclick="copyText('${cli.replace(/'/g,"\\'")}', this)" title="Copy">📋</button>` : ''}
+            </div>
+          </td>
+          <td>
+            ${f.status==='pending'
+              ? `<button class="btn btn-sm btn-success" id="rem-btn-${f.id}" onclick="remediateOne(${f.id})">Remediate</button>`
+              : `<span style="color:#4a5568;font-size:0.78rem">${f.status}</span>`}
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function remediateOne(findingId) {
+    const btn = document.getElementById(`rem-btn-${findingId}`);
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      const res = await fetch(`/remediate/${findingId}`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${JWT}` }
+      });
+      const data = await res.json();
+      const badge = document.getElementById(`status-badge-${findingId}`);
+      if (data.success) {
+        if (badge) { badge.className = 'badge badge-remediated'; badge.textContent = 'remediated'; }
+        if (btn) btn.parentElement.innerHTML = '<span style="color:#4a5568;font-size:0.78rem">remediated</span>';
+        refreshSummary();
+      } else {
+        if (badge) { badge.className = 'badge badge-failed'; badge.textContent = 'failed'; }
+        const cli = data.cli_alternative;
+        if (btn) {
+          btn.textContent = 'Failed';
+          btn.disabled = false;
+        }
+        if (cli) alert(`AWS credentials not configured.\n\nRun this CLI command instead:\n\n${cli}`);
+        else alert(data.message || 'Remediation failed.');
+      }
+    } catch(e) {
+      if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
+    }
+  }
+
+  async function clearAllData() {
+    if (!confirm('Clear ALL resources, findings, and commands? This cannot be undone.')) return;
+    try {
+      const res = await fetch('/data', {
+        method: 'DELETE', headers: { 'Authorization': `Bearer ${JWT}` }
+      });
+      const data = await res.json();
+      document.getElementById('clear-status').textContent = data.message || 'Cleared.';
+      selectedFile = null;
+      document.getElementById('file-name-label').textContent = '';
+      setUploadStatus('');
+      refreshAll();
+    } catch(e) { document.getElementById('clear-status').textContent = 'Error clearing data.'; }
+  }
+
+  function copyText(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = '✅';
+      setTimeout(() => btn.textContent = orig, 1200);
+    });
+  }
+
+  // Enter key on login form
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('auth-overlay').style.display !== 'none') {
+      if (document.getElementById('login-form').style.display !== 'none') doLogin();
+      else doRegister();
+    }
+  });
+</script>
+</body>
+</html>
