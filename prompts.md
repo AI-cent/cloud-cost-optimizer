@@ -95,6 +95,15 @@
 
 ---
 
+## Turn 11 — 2026-07-08 ~18:20 PDT
+
+**Prompt:**
+> Generate a script named setup_aws.sh that: 1. Checks if AWS CLI v2 is already installed. 2. If not, provides correct install commands for the operating system. 3. Verifies installation with aws --version. 4. Provides step-by-step instructions for aws configure and explains Access Key ID, Secret Access Key, default region us-east-1, and output format json. 5. Adds a final verification check: aws sts get-caller-identity. Also explain where to find AWS credentials in the AWS Console.
+
+**Action:** Created setup_aws.sh — OS detection (macOS/Ubuntu/RHEL/Windows), install instructions, credential explanation table, aws configure walkthrough, live sts get-caller-identity verification. Script is executable and colour-coded.
+
+---
+
 ## Turn 10 — 2026-07-08 ~18:10 PDT
 
 **Prompt:**
