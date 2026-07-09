@@ -19,6 +19,14 @@
 
 ---
 
+## Turn 4
+**Prompt:**
+> Generate a realistic sample_data/aws_billing.csv file with 20 rows using these exact columns: ResourceId, ResourceName, ResourceType, Region, MonthlyCost, Status, LastActiveDate. Include: 4 EBS Volumes, 4 EC2 Instances, 3 Elastic IPs, 3 Load Balancers, 3 Snapshots, 3 mixed healthy. Realistic AWS IDs and costs. Total orphaned waste ~$1,800/month.
+
+**Action:** Updated `aws_parser.py` to accept both CamelCase (`ResourceId`, `MonthlyCost`) and snake_case column names via alias mapping. Generated 20-row CSV. Verified: 20 rows parsed, 10 orphaned resources detected, **$1,812.20/month total waste**. 17/17 tests still passing.
+
+---
+
 ## Turn 3
 **Prompt:**
 > Add all files and commit with the message "feat: initial project scaffold with auth and full architecture" then push to GitHub.
