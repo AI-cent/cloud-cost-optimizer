@@ -14,12 +14,14 @@
       position: fixed; inset: 0; background: #0f1117;
       display: flex; align-items: center; justify-content: center; z-index: 100;
     }
+    #auth-overlay.hidden { display: none; }
+
     .auth-card {
       background: #1a1f2e; border: 1px solid #2d3748; border-radius: 12px;
       padding: 2rem; width: 100%; max-width: 420px;
     }
     .auth-card h1 { font-size: 1.5rem; margin-bottom: 0.25rem; color: #63b3ed; }
-    .auth-card p { font-size: 0.85rem; color: #718096; margin-bottom: 1.5rem; }
+    .auth-card p  { font-size: 0.85rem; color: #718096; margin-bottom: 1.5rem; }
     .form-group { margin-bottom: 1rem; }
     .form-group label { display: block; font-size: 0.8rem; color: #a0aec0; margin-bottom: 0.3rem; }
     .form-group input {
@@ -27,21 +29,28 @@
       border-radius: 6px; color: #e2e8f0; font-size: 0.9rem; outline: none;
     }
     .form-group input:focus { border-color: #63b3ed; }
+
     .btn {
       display: inline-block; padding: 0.6rem 1.2rem; border-radius: 6px; border: none;
       cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: opacity 0.15s;
     }
-    .btn:hover { opacity: 0.85; }
+    .btn:hover:not(:disabled) { opacity: 0.85; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: #3182ce; color: #fff; width: 100%; margin-top: 0.5rem; }
     .btn-danger  { background: #c53030; color: #fff; }
     .btn-success { background: #276749; color: #fff; }
     .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+
     .auth-toggle { text-align: center; margin-top: 1rem; font-size: 0.82rem; color: #718096; }
     .auth-toggle span { color: #63b3ed; cursor: pointer; text-decoration: underline; }
-    #auth-error { color: #fc8181; font-size: 0.82rem; margin-top: 0.5rem; min-height: 1.2rem; }
+
+    /* Single, uniquely-IDed error element per form */
+    .auth-error-msg { color: #fc8181; font-size: 0.82rem; margin-top: 0.5rem; min-height: 1.2rem; }
 
     /* ── Main layout ── */
     #main-app { display: none; }
+    #main-app.visible { display: block; }
+
     header {
       background: #1a1f2e; border-bottom: 1px solid #2d3748;
       padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between;
@@ -50,6 +59,28 @@
     .header-right { display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; color: #a0aec0; }
 
     .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+
+    /* ── Loading spinner ── */
+    #loading-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(15,17,23,0.75);
+      z-index: 50; align-items: center; justify-content: center; flex-direction: column; gap: 1rem;
+    }
+    #loading-overlay.active { display: flex; }
+    .spinner {
+      width: 44px; height: 44px; border: 4px solid #2d3748;
+      border-top-color: #63b3ed; border-radius: 50%; animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-label { color: #a0aec0; font-size: 0.9rem; }
+
+    /* ── Global error banner ── */
+    #error-banner {
+      display: none; background: #742a2a; border: 1px solid #c53030; border-radius: 8px;
+      color: #fc8181; font-size: 0.85rem; padding: 0.75rem 1rem; margin-bottom: 1rem;
+      display: none; align-items: center; gap: 0.75rem;
+    }
+    #error-banner.active { display: flex; }
+    #error-banner button { background: none; border: none; color: #fc8181; cursor: pointer; font-size: 1rem; margin-left: auto; }
 
     /* ── Upload section ── */
     .upload-section {
@@ -76,10 +107,7 @@
 
     /* ── Summary cards ── */
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-    .card {
-      background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px;
-      padding: 1.2rem 1.5rem;
-    }
+    .card { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 1.2rem 1.5rem; }
     .card-label { font-size: 0.75rem; color: #718096; text-transform: uppercase; letter-spacing: 0.05em; }
     .card-value { font-size: 2rem; font-weight: 700; color: #63b3ed; margin-top: 0.25rem; }
     .card-sub { font-size: 0.78rem; color: #a0aec0; margin-top: 0.15rem; }
@@ -87,9 +115,7 @@
     /* ── Charts ── */
     .charts { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
     @media (max-width: 700px) { .charts { grid-template-columns: 1fr; } }
-    .chart-box {
-      background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 1.25rem;
-    }
+    .chart-box { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 10px; padding: 1.25rem; }
     .chart-box h3 { font-size: 0.85rem; color: #a0aec0; margin-bottom: 1rem; }
     .chart-box canvas { max-height: 260px; }
 
@@ -98,29 +124,36 @@
     .table-section h2 { font-size: 1rem; margin-bottom: 1rem; }
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    th { background: #0f1117; color: #718096; text-align: left; padding: 0.6rem 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72rem; }
+    th {
+      background: #0f1117; color: #718096; text-align: left; padding: 0.6rem 0.75rem;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72rem;
+    }
     td { padding: 0.65rem 0.75rem; border-top: 1px solid #2d3748; vertical-align: middle; }
     tr:hover td { background: rgba(99,179,237,0.04); }
+
     .badge {
       display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px;
       font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
     }
-    .badge-Critical { background: #742a2a; color: #fc8181; }
-    .badge-High     { background: #7b341e; color: #f6ad55; }
-    .badge-Medium   { background: #744210; color: #fbd38d; }
-    .badge-Low      { background: #1a365d; color: #90cdf4; }
-    .badge-pending     { background: #2d3748; color: #a0aec0; }
-    .badge-remediated  { background: #1c4532; color: #68d391; }
-    .badge-failed      { background: #742a2a; color: #fc8181; }
+    .badge-Critical   { background: #742a2a; color: #fc8181; }
+    .badge-High       { background: #7b341e; color: #f6ad55; }
+    .badge-Medium     { background: #744210; color: #fbd38d; }
+    .badge-Low        { background: #1a365d; color: #90cdf4; }
+    .badge-pending    { background: #2d3748; color: #a0aec0; }
+    .badge-remediated { background: #1c4532; color: #68d391; }
+    .badge-failed     { background: #742a2a; color: #fc8181; }
 
     .cli-wrap { display: flex; align-items: center; gap: 0.4rem; }
     .cli-code {
       font-family: monospace; font-size: 0.72rem; color: #9ae6b4;
       background: #0f1117; padding: 0.25rem 0.5rem; border-radius: 4px;
-      max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      display: inline-block; cursor: pointer; title: attr(data-full);
+      max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: inline-block;
     }
-    .copy-btn { background: none; border: none; cursor: pointer; color: #718096; font-size: 0.75rem; padding: 0; }
+    .copy-btn {
+      background: none; border: none; cursor: pointer; color: #718096;
+      font-size: 0.75rem; padding: 0; flex-shrink: 0;
+    }
     .copy-btn:hover { color: #63b3ed; }
 
     .footer { margin-top: 2rem; text-align: center; }
@@ -132,7 +165,13 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════════ AUTH OVERLAY ═══════════════════════════════════ -->
+<!-- ═══════════ LOADING OVERLAY ═══════════ -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="spinner-label" id="spinner-label">Loading dashboard…</div>
+</div>
+
+<!-- ═══════════ AUTH OVERLAY ═══════════ -->
 <div id="auth-overlay">
   <div class="auth-card">
     <h1>☁️ Cloud Cost Optimizer</h1>
@@ -148,8 +187,8 @@
         <label>Password</label>
         <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
       </div>
-      <div id="auth-error"></div>
-      <button class="btn btn-primary" onclick="doLogin()">Login</button>
+      <div class="auth-error-msg" id="login-error"></div>
+      <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Login</button>
       <div class="auth-toggle">Don't have an account? <span onclick="showRegister()">Register</span></div>
     </div>
 
@@ -167,14 +206,14 @@
         <label>Password</label>
         <input type="password" id="reg-password" placeholder="••••••••" />
       </div>
-      <div id="auth-error"></div>
-      <button class="btn btn-primary" onclick="doRegister()">Create Account</button>
+      <div class="auth-error-msg" id="register-error"></div>
+      <button class="btn btn-primary" id="register-btn" onclick="doRegister()">Create Account</button>
       <div class="auth-toggle">Already have an account? <span onclick="showLogin()">Login</span></div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════════════ MAIN APP ═══════════════════════════════════ -->
+<!-- ═══════════ MAIN APP ═══════════ -->
 <div id="main-app">
   <header>
     <h1>☁️ Cloud Cost Optimizer</h1>
@@ -186,6 +225,12 @@
 
   <div class="container">
 
+    <!-- Error Banner -->
+    <div id="error-banner">
+      <span id="error-banner-msg"></span>
+      <button onclick="hideBanner()">✕</button>
+    </div>
+
     <!-- Upload -->
     <div class="upload-section">
       <h2>📂 Upload AWS Billing Export</h2>
@@ -195,7 +240,7 @@
         <div class="file-name" id="file-name-label"></div>
       </div>
       <div class="upload-controls">
-        <button class="btn btn-primary" onclick="uploadCSV()" style="width:auto">Ingest</button>
+        <button class="btn btn-primary" onclick="uploadCSV()" style="width:auto" id="ingest-btn">Ingest</button>
         <span id="upload-status"></span>
       </div>
     </div>
@@ -204,12 +249,12 @@
     <div class="cards">
       <div class="card">
         <div class="card-label">Total Monthly Waste</div>
-        <div class="card-value" id="card-waste">$0</div>
+        <div class="card-value" id="card-waste">—</div>
         <div class="card-sub">estimated USD/month</div>
       </div>
       <div class="card">
         <div class="card-label">Orphaned Resources</div>
-        <div class="card-value" id="card-resources">0</div>
+        <div class="card-value" id="card-resources">—</div>
         <div class="card-sub">with active findings</div>
       </div>
       <div class="card">
@@ -219,7 +264,7 @@
       </div>
       <div class="card">
         <div class="card-label">Pending Remediations</div>
-        <div class="card-value" id="card-pending">0</div>
+        <div class="card-value" id="card-pending">—</div>
         <div class="card-sub">awaiting action</div>
       </div>
     </div>
@@ -256,7 +301,7 @@
             </tr>
           </thead>
           <tbody id="findings-body">
-            <tr><td colspan="10" class="empty-state">No findings yet. Upload a billing CSV to get started.</td></tr>
+            <tr><td colspan="10" class="empty-state">Loading findings…</td></tr>
           </tbody>
         </table>
       </div>
@@ -272,304 +317,529 @@
 </div>
 
 <script>
-  // ── State ──
-  let JWT = null;
-  let barChart = null;
-  let doughnutChart = null;
-  let selectedFile = null;
+// ─────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────
+let JWT = null;
+let barChart = null;
+let doughnutChart = null;
+let selectedFile = null;
 
-  // ── Auth helpers ──
-  function showLogin() {
-    document.getElementById('login-form').style.display = '';
-    document.getElementById('register-form').style.display = 'none';
-    setAuthError('');
-  }
-  function showRegister() {
-    document.getElementById('login-form').style.display = 'none';
-    document.getElementById('register-form').style.display = '';
-    setAuthError('');
-  }
-  function setAuthError(msg) {
-    document.querySelectorAll('#auth-error').forEach(el => el.textContent = msg);
-  }
+// Indexed store for CLI commands (avoids inline onclick escaping issues)
+const cliStore = {};
 
-  async function doLogin() {
-    const username = document.getElementById('login-username').value.trim();
-    const password = document.getElementById('login-password').value;
-    if (!username || !password) { setAuthError('Please fill in all fields.'); return; }
-    try {
-      const res = await fetch('/auth/login', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
-      if (!res.ok) { setAuthError(data.detail || 'Login failed.'); return; }
-      JWT = data.access_token;
-      document.getElementById('user-label').textContent = `👤 ${username}`;
-      document.getElementById('auth-overlay').style.display = 'none';
-      document.getElementById('main-app').style.display = '';
-      refreshAll();
-    } catch(e) { setAuthError('Network error. Is the server running?'); }
-  }
+// ─────────────────────────────────────────────────────────
+// Utility: loading spinner
+// ─────────────────────────────────────────────────────────
+function showSpinner(label) {
+  document.getElementById('spinner-label').textContent = label || 'Loading…';
+  document.getElementById('loading-overlay').classList.add('active');
+}
+function hideSpinner() {
+  document.getElementById('loading-overlay').classList.remove('active');
+}
 
-  async function doRegister() {
-    const username = document.getElementById('reg-username').value.trim();
-    const email    = document.getElementById('reg-email').value.trim();
-    const password = document.getElementById('reg-password').value;
-    if (!username || !email || !password) { setAuthError('Please fill in all fields.'); return; }
-    try {
-      const res = await fetch('/auth/register', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ username, email, password })
-      });
-      const data = await res.json();
-      if (!res.ok) { setAuthError(data.detail || 'Registration failed.'); return; }
-      // Auto-login after register
-      document.getElementById('login-username').value = username;
-      document.getElementById('login-password').value = password;
-      showLogin();
-      setAuthError('✅ Account created! Logging you in…');
-      setTimeout(doLogin, 600);
-    } catch(e) { setAuthError('Network error.'); }
-  }
+// ─────────────────────────────────────────────────────────
+// Utility: error banner
+// ─────────────────────────────────────────────────────────
+function showBanner(msg) {
+  console.error('[Dashboard error]', msg);
+  document.getElementById('error-banner-msg').textContent = msg;
+  document.getElementById('error-banner').classList.add('active');
+}
+function hideBanner() {
+  document.getElementById('error-banner').classList.remove('active');
+}
 
-  function logout() {
-    JWT = null;
-    document.getElementById('auth-overlay').style.display = '';
-    document.getElementById('main-app').style.display = 'none';
-    document.getElementById('login-username').value = '';
-    document.getElementById('login-password').value = '';
-    setAuthError('');
-  }
+// ─────────────────────────────────────────────────────────
+// Auth helpers
+// ─────────────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById('login-form').style.display = '';
+  document.getElementById('register-form').style.display = 'none';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('register-error').textContent = '';
+}
 
-  // ── Upload ──
-  const dropZone = document.getElementById('drop-zone');
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault(); dropZone.classList.remove('dragover');
-    const f = e.dataTransfer.files[0];
-    if (f && f.name.endsWith('.csv')) { selectedFile = f; document.getElementById('file-name-label').textContent = f.name; }
-    else { setUploadStatus('Only .csv files are accepted.', 'err'); }
-  });
+function showRegister() {
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('register-form').style.display = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('register-error').textContent = '';
+}
 
-  function onFileSelected(input) {
-    selectedFile = input.files[0] || null;
-    document.getElementById('file-name-label').textContent = selectedFile ? selectedFile.name : '';
-  }
+function setLoginError(msg)    { document.getElementById('login-error').textContent = msg; }
+function setRegisterError(msg) { document.getElementById('register-error').textContent = msg; }
 
-  function setUploadStatus(msg, type='info') {
-    const el = document.getElementById('upload-status');
-    el.className = `status-${type}`;
-    el.textContent = msg;
-  }
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!username || !password) { setLoginError('Please fill in all fields.'); return; }
 
-  async function uploadCSV() {
-    if (!selectedFile) { setUploadStatus('Please select a CSV file first.', 'err'); return; }
-    setUploadStatus('Uploading…', 'info');
-    const form = new FormData();
-    form.append('file', selectedFile);
-    try {
-      const res = await fetch('/ingest', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${JWT}` },
-        body: form
-      });
-      const data = await res.json();
-      if (!res.ok) { setUploadStatus(`Error: ${data.detail || 'Upload failed.'}`, 'err'); return; }
-      setUploadStatus(`✅ Success! ${data.resources_ingested} resources ingested, ${data.findings_detected} findings detected.`, 'ok');
-      refreshAll();
-    } catch(e) { setUploadStatus('Network error during upload.', 'err'); }
-  }
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  setLoginError('');
 
-  // ── Refresh ──
-  async function refreshAll() {
-    await Promise.all([refreshSummary(), refreshFindings()]);
-  }
-
-  async function refreshSummary() {
-    try {
-      const res = await fetch('/summary', { headers: { 'Authorization': `Bearer ${JWT}` } });
-      if (!res.ok) return;
-      const d = await res.json();
-
-      document.getElementById('card-waste').textContent = `$${d.total_waste_usd.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
-      document.getElementById('card-pending').textContent = d.pending_remediations;
-
-      const types = d.findings_by_resource_type;
-      const totalResources = Object.values(types).reduce((a,b)=>a+b, 0);
-      document.getElementById('card-resources').textContent = totalResources;
-
-      // Most wasteful type
-      const top = d.top_3_wasteful_resources[0];
-      document.getElementById('card-top-type').textContent = top ? top.resource_type : '—';
-      document.getElementById('card-top-type-sub').textContent = top ? `$${(top.estimated_monthly_waste_usd||0).toFixed(2)}/mo` : '';
-
-      // Bar chart
-      const barLabels = Object.keys(types);
-      // We need waste by type — approximate from summary
-      const sevData = d.findings_by_severity;
-      renderBarChart(barLabels, barLabels.map(k => types[k]));
-      renderDoughnutChart(sevData);
-    } catch(e) { console.error(e); }
-  }
-
-  async function refreshFindings() {
-    try {
-      const res = await fetch('/findings', { headers: { 'Authorization': `Bearer ${JWT}` } });
-      if (!res.ok) return;
-      const findings = await res.json();
-      renderFindingsTable(findings);
-      // Re-render bar chart with actual waste per type
-      const wasteByType = {};
-      for (const f of findings) {
-        const t = f.resource?.type || 'Unknown';
-        wasteByType[t] = (wasteByType[t] || 0) + (f.estimated_monthly_waste_usd || 0);
-      }
-      renderBarChart(Object.keys(wasteByType), Object.values(wasteByType));
-    } catch(e) { console.error(e); }
-  }
-
-  function renderBarChart(labels, values) {
-    const ctx = document.getElementById('bar-chart').getContext('2d');
-    if (barChart) barChart.destroy();
-    barChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{
-          label: 'Monthly Waste (USD)',
-          data: values,
-          backgroundColor: ['#3182ce','#c05621','#6b46c1','#276749','#c53030'],
-          borderRadius: 6,
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: true,
-        plugins: { legend: { display: false } },
-        scales: {
-          x: { ticks: { color: '#a0aec0' }, grid: { color: '#2d3748' } },
-          y: { ticks: { color: '#a0aec0', callback: v=>`$${v}` }, grid: { color: '#2d3748' } }
-        }
-      }
+  try {
+    console.log('[Auth] POST /auth/login for user:', username);
+    const res = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
     });
-  }
+    const data = await res.json();
+    console.log('[Auth] Login response:', res.status, data);
 
-  function renderDoughnutChart(sevData) {
-    const ctx = document.getElementById('doughnut-chart').getContext('2d');
-    if (doughnutChart) doughnutChart.destroy();
-    const order = ['Critical','High','Medium','Low'];
-    const colors = { Critical:'#c53030', High:'#dd6b20', Medium:'#d69e2e', Low:'#3182ce' };
-    const labels = order.filter(k => sevData[k]);
-    const values = labels.map(k => sevData[k]);
-    doughnutChart = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels,
-        datasets: [{ data: values, backgroundColor: labels.map(l=>colors[l]), borderWidth: 2, borderColor: '#1a1f2e' }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: true,
-        plugins: {
-          legend: { position: 'bottom', labels: { color: '#a0aec0', padding: 16, font: { size: 12 } } }
-        }
-      }
-    });
-  }
-
-  function renderFindingsTable(findings) {
-    const tbody = document.getElementById('findings-body');
-    if (!findings.length) {
-      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No findings yet. Upload a billing CSV to get started.</td></tr>';
+    if (!res.ok) {
+      setLoginError(data.detail || 'Login failed. Check username and password.');
+      btn.disabled = false;
+      btn.textContent = 'Login';
       return;
     }
-    tbody.innerHTML = findings.map(f => {
-      const r = f.resource || {};
-      const cli = f.cli_command || '';
-      const short = cli.length > 45 ? cli.slice(0,45)+'…' : cli;
-      return `
-        <tr id="row-${f.id}">
-          <td>${f.id}</td>
-          <td><code style="font-size:0.75rem;color:#9ae6b4">${r.id||'—'}</code></td>
-          <td>${r.name||'—'}</td>
-          <td>${r.type||'—'}</td>
-          <td>${r.region||'—'}</td>
-          <td><span class="badge badge-${f.severity}">${f.severity}</span></td>
-          <td>$${(f.estimated_monthly_waste_usd||0).toFixed(2)}</td>
-          <td><span class="badge badge-${f.status}" id="status-badge-${f.id}">${f.status}</span></td>
-          <td>
-            <div class="cli-wrap">
-              <span class="cli-code" title="${cli}">${short||'—'}</span>
-              ${cli ? `<button class="copy-btn" onclick="copyText('${cli.replace(/'/g,"\\'")}', this)" title="Copy">📋</button>` : ''}
-            </div>
-          </td>
-          <td>
-            ${f.status==='pending'
-              ? `<button class="btn btn-sm btn-success" id="rem-btn-${f.id}" onclick="remediateOne(${f.id})">Remediate</button>`
-              : `<span style="color:#4a5568;font-size:0.78rem">${f.status}</span>`}
-          </td>
-        </tr>`;
-    }).join('');
-  }
 
-  async function remediateOne(findingId) {
-    const btn = document.getElementById(`rem-btn-${findingId}`);
-    if (btn) { btn.disabled = true; btn.textContent = '…'; }
-    try {
-      const res = await fetch(`/remediate/${findingId}`, {
-        method: 'POST', headers: { 'Authorization': `Bearer ${JWT}` }
-      });
-      const data = await res.json();
-      const badge = document.getElementById(`status-badge-${findingId}`);
-      if (data.success) {
-        if (badge) { badge.className = 'badge badge-remediated'; badge.textContent = 'remediated'; }
-        if (btn) btn.parentElement.innerHTML = '<span style="color:#4a5568;font-size:0.78rem">remediated</span>';
-        refreshSummary();
-      } else {
-        if (badge) { badge.className = 'badge badge-failed'; badge.textContent = 'failed'; }
-        const cli = data.cli_alternative;
-        if (btn) {
-          btn.textContent = 'Failed';
-          btn.disabled = false;
-        }
-        if (cli) alert(`AWS credentials not configured.\n\nRun this CLI command instead:\n\n${cli}`);
-        else alert(data.message || 'Remediation failed.');
-      }
-    } catch(e) {
-      if (btn) { btn.textContent = 'Error'; btn.disabled = false; }
+    // ── BUG FIX: store token and show main app ─────────────────
+    JWT = data.access_token;
+    console.log('[Auth] JWT stored. Token prefix:', JWT.substring(0, 20) + '…');
+
+    document.getElementById('user-label').textContent = `👤 ${username}`;
+
+    // Hide overlay using class — avoids style.display='' reverting to CSS display:none
+    document.getElementById('auth-overlay').classList.add('hidden');
+
+    // Show main app using class — explicit, never fights CSS
+    document.getElementById('main-app').classList.add('visible');
+
+    console.log('[Dashboard] Main app revealed. Fetching data…');
+    await refreshAll();
+
+  } catch (err) {
+    console.error('[Auth] Login fetch error:', err);
+    setLoginError('Network error — is the server running?');
+    btn.disabled = false;
+    btn.textContent = 'Login';
+  }
+}
+
+async function doRegister() {
+  const username = document.getElementById('reg-username').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  if (!username || !email || !password) { setRegisterError('Please fill in all fields.'); return; }
+
+  const btn = document.getElementById('register-btn');
+  btn.disabled = true;
+  btn.textContent = 'Creating account…';
+  setRegisterError('');
+
+  try {
+    const res = await fetch('/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setRegisterError(data.detail || 'Registration failed.');
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+      return;
     }
+    // Auto-login after register
+    document.getElementById('login-username').value = username;
+    document.getElementById('login-password').value = password;
+    showLogin();
+    setLoginError('✅ Account created! Logging you in…');
+    setTimeout(doLogin, 500);
+  } catch (err) {
+    setRegisterError('Network error.');
+    btn.disabled = false;
+    btn.textContent = 'Create Account';
   }
+}
 
-  async function clearAllData() {
-    if (!confirm('Clear ALL resources, findings, and commands? This cannot be undone.')) return;
-    try {
-      const res = await fetch('/data', {
-        method: 'DELETE', headers: { 'Authorization': `Bearer ${JWT}` }
-      });
-      const data = await res.json();
-      document.getElementById('clear-status').textContent = data.message || 'Cleared.';
-      selectedFile = null;
-      document.getElementById('file-name-label').textContent = '';
-      setUploadStatus('');
-      refreshAll();
-    } catch(e) { document.getElementById('clear-status').textContent = 'Error clearing data.'; }
-  }
+function logout() {
+  JWT = null;
+  document.getElementById('auth-overlay').classList.remove('hidden');
+  document.getElementById('main-app').classList.remove('visible');
+  document.getElementById('login-username').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-btn').disabled = false;
+  document.getElementById('login-btn').textContent = 'Login';
+  setLoginError('');
+  hideBanner();
+}
 
-  function copyText(text, btn) {
-    navigator.clipboard.writeText(text).then(() => {
-      const orig = btn.textContent;
-      btn.textContent = '✅';
-      setTimeout(() => btn.textContent = orig, 1200);
+// ─────────────────────────────────────────────────────────
+// Upload
+// ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  const dropZone = document.getElementById('drop-zone');
+  if (dropZone) {
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const f = e.dataTransfer.files[0];
+      if (f && f.name.endsWith('.csv')) {
+        selectedFile = f;
+        document.getElementById('file-name-label').textContent = f.name;
+      } else {
+        setUploadStatus('Only .csv files are accepted.', 'err');
+      }
     });
   }
+});
 
-  // Enter key on login form
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && document.getElementById('auth-overlay').style.display !== 'none') {
-      if (document.getElementById('login-form').style.display !== 'none') doLogin();
-      else doRegister();
+function onFileSelected(input) {
+  selectedFile = input.files[0] || null;
+  document.getElementById('file-name-label').textContent = selectedFile ? selectedFile.name : '';
+}
+
+function setUploadStatus(msg, type) {
+  const el = document.getElementById('upload-status');
+  el.className = type ? `status-${type}` : '';
+  el.textContent = msg;
+}
+
+async function uploadCSV() {
+  if (!selectedFile) { setUploadStatus('Please select a CSV file first.', 'err'); return; }
+
+  const btn = document.getElementById('ingest-btn');
+  btn.disabled = true;
+  setUploadStatus('Uploading…', 'info');
+
+  const form = new FormData();
+  form.append('file', selectedFile);
+
+  try {
+    console.log('[Ingest] POST /ingest with file:', selectedFile.name);
+    const res = await fetch('/ingest', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${JWT}` },
+      body: form
+    });
+    const data = await res.json();
+    console.log('[Ingest] Response:', res.status, data);
+
+    if (!res.ok) {
+      setUploadStatus(`Error: ${data.detail || 'Upload failed.'}`, 'err');
+      btn.disabled = false;
+      return;
+    }
+
+    setUploadStatus(
+      `✅ ${data.resources_ingested} resources ingested · ${data.findings_detected} findings detected`,
+      'ok'
+    );
+    await refreshAll();
+  } catch (err) {
+    console.error('[Ingest] error:', err);
+    setUploadStatus('Network error during upload.', 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Dashboard refresh
+// ─────────────────────────────────────────────────────────
+async function refreshAll() {
+  showSpinner('Loading dashboard data…');
+  hideBanner();
+  try {
+    console.log('[Refresh] Fetching /summary and /findings with Bearer token');
+    await Promise.all([refreshSummary(), refreshFindings()]);
+    console.log('[Refresh] Done.');
+  } catch (err) {
+    console.error('[Refresh] Unexpected error:', err);
+    showBanner('Failed to load dashboard data. ' + err.message);
+  } finally {
+    hideSpinner();
+  }
+}
+
+async function refreshSummary() {
+  console.log('[Summary] GET /summary — Authorization: Bearer', JWT ? JWT.substring(0,15)+'…' : 'NULL');
+  const res = await fetch('/summary', {
+    headers: { 'Authorization': `Bearer ${JWT}` }
+  });
+  console.log('[Summary] Status:', res.status);
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`/summary returned ${res.status}: ${err.detail || res.statusText}`);
+  }
+
+  const d = await res.json();
+  console.log('[Summary] Data:', d);
+
+  // Update cards
+  document.getElementById('card-waste').textContent =
+    '$' + (d.total_waste_usd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById('card-pending').textContent = d.pending_remediations ?? '0';
+
+  const types = d.findings_by_resource_type || {};
+  const totalResources = Object.values(types).reduce((a, b) => a + b, 0);
+  document.getElementById('card-resources').textContent = totalResources;
+
+  const top = (d.top_3_wasteful_resources || [])[0];
+  document.getElementById('card-top-type').textContent = top ? top.resource_type : '—';
+  document.getElementById('card-top-type-sub').textContent =
+    top ? `$${(top.estimated_monthly_waste_usd || 0).toFixed(2)}/mo` : '';
+
+  // Doughnut chart
+  renderDoughnutChart(d.findings_by_severity || {});
+}
+
+async function refreshFindings() {
+  console.log('[Findings] GET /findings — Authorization: Bearer', JWT ? JWT.substring(0,15)+'…' : 'NULL');
+  const res = await fetch('/findings', {
+    headers: { 'Authorization': `Bearer ${JWT}` }
+  });
+  console.log('[Findings] Status:', res.status);
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`/findings returned ${res.status}: ${err.detail || res.statusText}`);
+  }
+
+  const findings = await res.json();
+  console.log('[Findings] Count:', findings.length);
+
+  renderFindingsTable(findings);
+
+  // Bar chart — waste per resource type from actual findings
+  const wasteByType = {};
+  for (const f of findings) {
+    const t = (f.resource && f.resource.type) ? f.resource.type : 'Unknown';
+    wasteByType[t] = (wasteByType[t] || 0) + (f.estimated_monthly_waste_usd || 0);
+  }
+  renderBarChart(Object.keys(wasteByType), Object.values(wasteByType));
+}
+
+// ─────────────────────────────────────────────────────────
+// Charts
+// ─────────────────────────────────────────────────────────
+function renderBarChart(labels, values) {
+  const canvas = document.getElementById('bar-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (barChart) { barChart.destroy(); barChart = null; }
+  if (!labels.length) return;
+
+  barChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Monthly Waste (USD)',
+        data: values,
+        backgroundColor: ['#3182ce', '#c05621', '#6b46c1', '#276749', '#c53030'],
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#a0aec0' }, grid: { color: '#2d3748' } },
+        y: {
+          ticks: { color: '#a0aec0', callback: v => `$${v}` },
+          grid: { color: '#2d3748' }
+        }
+      }
     }
   });
+}
+
+function renderDoughnutChart(sevData) {
+  const canvas = document.getElementById('doughnut-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (doughnutChart) { doughnutChart.destroy(); doughnutChart = null; }
+
+  const order  = ['Critical', 'High', 'Medium', 'Low'];
+  const colors = { Critical: '#c53030', High: '#dd6b20', Medium: '#d69e2e', Low: '#3182ce' };
+  const labels = order.filter(k => sevData[k] > 0);
+  const values = labels.map(k => sevData[k]);
+  if (!labels.length) return;
+
+  doughnutChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: labels.map(l => colors[l]),
+        borderWidth: 2,
+        borderColor: '#1a1f2e'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#a0aec0', padding: 16, font: { size: 12 } }
+        }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────
+// Findings table — CLI stored in cliStore, not inline onclick
+// ─────────────────────────────────────────────────────────
+function renderFindingsTable(findings) {
+  const tbody = document.getElementById('findings-body');
+  if (!findings.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No findings yet. Upload a billing CSV to get started.</td></tr>';
+    return;
+  }
+
+  // Store CLI commands safely by finding ID
+  findings.forEach(f => { cliStore[f.id] = f.cli_command || ''; });
+
+  tbody.innerHTML = findings.map(f => {
+    const r   = f.resource || {};
+    const cli = f.cli_command || '';
+    const short = cli.length > 42 ? cli.slice(0, 42) + '…' : cli;
+    const actionCell = f.status === 'pending'
+      ? `<button class="btn btn-sm btn-success" id="rem-btn-${f.id}" onclick="remediateOne(${f.id})">Remediate</button>`
+      : `<span style="color:#4a5568;font-size:0.78rem">${f.status}</span>`;
+
+    return `<tr id="row-${f.id}">
+      <td>${f.id}</td>
+      <td><code style="font-size:0.75rem;color:#9ae6b4">${escHtml(r.id || '—')}</code></td>
+      <td>${escHtml(r.name || '—')}</td>
+      <td>${escHtml(r.type || '—')}</td>
+      <td>${escHtml(r.region || '—')}</td>
+      <td><span class="badge badge-${f.severity}">${f.severity}</span></td>
+      <td>$${(f.estimated_monthly_waste_usd || 0).toFixed(2)}</td>
+      <td><span class="badge badge-${f.status}" id="status-badge-${f.id}">${f.status}</span></td>
+      <td>
+        <div class="cli-wrap">
+          <span class="cli-code" title="${escHtml(cli)}">${escHtml(short) || '—'}</span>
+          ${cli ? `<button class="copy-btn" onclick="copyCmd(${f.id}, this)" title="Copy to clipboard">📋</button>` : ''}
+        </div>
+      </td>
+      <td>${actionCell}</td>
+    </tr>`;
+  }).join('');
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ─────────────────────────────────────────────────────────
+// Copy CLI command (safe — reads from cliStore, not DOM)
+// ─────────────────────────────────────────────────────────
+function copyCmd(findingId, btn) {
+  const text = cliStore[findingId] || '';
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✅';
+    setTimeout(() => { btn.textContent = orig; }, 1400);
+  }).catch(() => {
+    // Fallback for browsers that block clipboard without HTTPS
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '✅';
+    setTimeout(() => { btn.textContent = '📋'; }, 1400);
+  });
+}
+
+// ─────────────────────────────────────────────────────────
+// Remediation
+// ─────────────────────────────────────────────────────────
+async function remediateOne(findingId) {
+  const btn   = document.getElementById(`rem-btn-${findingId}`);
+  const badge = document.getElementById(`status-badge-${findingId}`);
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+  try {
+    console.log('[Remediate] POST /remediate/' + findingId);
+    const res  = await fetch(`/remediate/${findingId}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${JWT}` }
+    });
+    const data = await res.json();
+    console.log('[Remediate] Response:', data);
+
+    if (data.success) {
+      if (badge) { badge.className = 'badge badge-remediated'; badge.textContent = 'remediated'; }
+      if (btn)   { btn.parentElement.innerHTML = '<span style="color:#4a5568;font-size:0.78rem">remediated</span>'; }
+      await refreshSummary();
+    } else {
+      if (badge) { badge.className = 'badge badge-failed'; badge.textContent = 'failed'; }
+      if (btn)   { btn.disabled = false; btn.textContent = 'Retry'; }
+      const cli = data.cli_alternative || cliStore[findingId] || '';
+      if (cli) {
+        showBanner(`AWS credentials not configured. Run instead: ${cli}`);
+      } else {
+        showBanner(data.message || 'Remediation failed.');
+      }
+    }
+  } catch (err) {
+    console.error('[Remediate] error:', err);
+    if (btn) { btn.disabled = false; btn.textContent = 'Error'; }
+    showBanner('Remediation request failed: ' + err.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Clear data
+// ─────────────────────────────────────────────────────────
+async function clearAllData() {
+  if (!confirm('Clear ALL resources, findings, and commands? This cannot be undone.')) return;
+  try {
+    const res  = await fetch('/data', {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${JWT}` }
+    });
+    const data = await res.json();
+    document.getElementById('clear-status').textContent = data.message || 'Cleared.';
+    selectedFile = null;
+    document.getElementById('file-name-label').textContent = '';
+    document.getElementById('csv-input').value = '';
+    setUploadStatus('', '');
+    Object.keys(cliStore).forEach(k => delete cliStore[k]);
+    await refreshAll();
+  } catch (err) {
+    document.getElementById('clear-status').textContent = 'Error clearing data: ' + err.message;
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// Enter-key shortcut on auth forms
+// ─────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const overlay = document.getElementById('auth-overlay');
+  if (overlay.classList.contains('hidden')) return;
+  if (document.getElementById('register-form').style.display === 'none') {
+    doLogin();
+  } else {
+    doRegister();
+  }
+});
 </script>
 </body>
 </html>

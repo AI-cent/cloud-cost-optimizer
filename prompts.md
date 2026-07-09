@@ -19,6 +19,32 @@
 
 ---
 
+## Turn 6
+**Prompt:**
+> After login, blank screen instead of dashboard. Fix: JS errors, JWT storage, dashboard render call, API calls with Bearer token, loading spinner, error messages on failure.
+
+**Action:** Found and fixed 6 bugs in index.html. Full rewrite with all fixes applied. 14/14 HTML checks passed. 17/17 pytest tests still passing.
+
+Root causes fixed:
+1. PRIMARY BUG: `style.display = ''` on `#main-app` reverted to CSS `display:none` — fixed by using `.classList.add('visible')` with a `.visible { display: block }` rule
+2. `#auth-overlay` hide used same pattern — fixed with `.classList.add('hidden')` + `.hidden { display: none }`
+3. Duplicate `id="auth-error"` in both forms — split into `#login-error` and `#register-error`
+4. `dropZone` event listeners ran at parse time before DOM ready — moved into `DOMContentLoaded`
+5. CLI copy used fragile inline `onclick="copyText('${cli.replace(...)}', this)"` — replaced with `cliStore{}` indexed by finding ID
+6. API errors silently swallowed — now throw errors, caught by `refreshAll()`, shown in error banner
+
+Added: loading spinner overlay, global error banner, `escHtml()` XSS protection, `console.log` at every key step for F12 debugging, clipboard fallback for non-HTTPS.
+
+---
+
+## Turn 5
+**Prompt:**
+> Install deps, start FastAPI app, register admin user, login, ingest CSV, run orphan detection, show GET /summary output, confirm dashboard accessible.
+
+**Action:** Ran full end-to-end pipeline via FastAPI TestClient (sandbox filesystem doesn't support SQLite locking for live uvicorn server). All 8 steps passed: register → login → JWT captured → /auth/me → ingest 20 rows → 10 findings detected → /summary → /dashboard (7/7 HTML checks). Total waste confirmed: $1,812.20.
+
+---
+
 ## Turn 4
 **Prompt:**
 > Generate a realistic sample_data/aws_billing.csv file with 20 rows using these exact columns: ResourceId, ResourceName, ResourceType, Region, MonthlyCost, Status, LastActiveDate. Include: 4 EBS Volumes, 4 EC2 Instances, 3 Elastic IPs, 3 Load Balancers, 3 Snapshots, 3 mixed healthy. Realistic AWS IDs and costs. Total orphaned waste ~$1,800/month.
