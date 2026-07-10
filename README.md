@@ -161,3 +161,23 @@ export AWS_DEFAULT_REGION=us-east-1
 ```
 
 Without credentials, the `/remediate` endpoints return the AWS CLI command as a fallback.
+
+---
+
+## Email Notifications
+
+After each successful remediation, an email is sent via Gmail SMTP. Configure in `.env`:
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-gmail@gmail.com
+SMTP_PASSWORD=xxxx xxxx xxxx xxxx
+SMTP_FROM_EMAIL=your-gmail@gmail.com
+NOTIFICATION_EMAIL=recipient@example.com
+```
+
+> **Gmail requires an App Password** — plain Gmail passwords are rejected.
+> Generate one at: **Google Account → Security → 2-Step Verification → App Passwords**
+> Select "Mail" + device name, copy the 16-character password into `SMTP_PASSWORD`.
+> `smtplib` is part of Python's standard library — no extra dependencies needed.

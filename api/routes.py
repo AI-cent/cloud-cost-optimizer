@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from auth.auth_bearer import JWTBearer
 from parser.aws_parser import parse_aws_csv
 from engine.orphan_detector import run_detection
 from engine.remediation import remediate_finding
+from notifications.email_sender import send_remediation_email, NOTIFICATION_EMAIL
 
 router = APIRouter()
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "..", "dashboard", "templates"))
@@ -261,11 +262,30 @@ def remediate_bulk(
 @router.post("/remediate/{finding_id}")
 def remediate_one(
     finding_id: int,
+    background_tasks: BackgroundTasks,
     payload: dict = Depends(jwt_bearer),
     db: Session = Depends(get_db),
 ):
     require_admin(payload, db)
     result = remediate_finding(finding_id, db)
+
+    if result.get("success"):
+        remediated_by = payload.get("sub", "unknown")
+        # Send email in background — doesn't block the API response
+        background_tasks.add_task(
+            send_remediation_email,
+            resource_id        = result.get("resource_id", ""),
+            resource_name      = result.get("resource_name") or result.get("resource_id", ""),
+            resource_type      = result.get("resource_type", ""),
+            region             = result.get("region", ""),
+            action             = result.get("action_taken", "Remediated"),
+            savings_per_month  = result.get("estimated_monthly_waste_usd", 0.0),
+            remediated_by      = remediated_by,
+            timestamp          = result.get("timestamp"),
+        )
+        result["email_sent"]       = True   # optimistic — fires in background
+        result["notification_email"] = NOTIFICATION_EMAIL
+
     return result
 
 

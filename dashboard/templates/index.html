@@ -1114,10 +1114,22 @@ async function remediateOne(id) {
   if (btn)  { btn.disabled = true; btn.style.display = 'none'; }
   if (badge){ badge.className = 'badge'; badge.textContent = 'processing…'; badge.style.background='#eaf0fb'; badge.style.color='#0073bb'; }
 
-  /* Demo mode — simulate AWS action with a 10-second wait */
-  await new Promise(r => setTimeout(r, 10000));
-  const apiSuccess = true;
-  const apiError   = '';
+  /* Call backend + run 10-second timer in parallel */
+  const abort = new AbortController();
+  setTimeout(() => abort.abort(), 9000);
+
+  const apiFetch = fetch(`/remediate/${id}`, {
+    method  : 'POST',
+    headers : { 'Authorization': `Bearer ${JWT}`, 'Content-Type': 'application/json' },
+    signal  : abort.signal,
+  })
+    .then(r => r.json())
+    .catch(e => ({ success: false, message: e.name === 'AbortError' ? 'Request timed out.' : 'Network error: ' + e.message }));
+
+  const [data] = await Promise.all([apiFetch, new Promise(r => setTimeout(r, 10000))]);
+
+  const apiSuccess = !!(data && data.success);
+  const apiError   = (data && data.message) || 'Remediation failed.';
 
   if (apiSuccess) {
     /* ── Step 2 success ─────────────────────────────────────────────────── */
@@ -1126,7 +1138,16 @@ async function remediateOne(id) {
     if (badge) { badge.className = 'badge badge-remediated'; badge.style.cssText = ''; badge.textContent = 'Remediated'; }
     if (action) action.innerHTML =
       `<span style="color:#1A9C3E;font-size:.66rem;font-weight:600">✓ ${rtype} successfully ${past}</span>`;
-    toast(`✓ ${rtype} "${rname}" successfully ${past}.`, 'ok');
+
+    /* Toast varies by email outcome */
+    if (data.email_sent) {
+      toast(`Remediated. Email sent to ${data.notification_email || 'admin'}.`, 'ok');
+    } else if (data.email_error) {
+      toast(`Remediated but email failed to send.`, 'ok');
+      console.warn('[Email]', data.email_error);
+    } else {
+      toast(`✓ ${rtype} "${rname}" successfully ${past}.`, 'ok');
+    }
     await refreshSummary();
 
   } else {
@@ -1136,8 +1157,8 @@ async function remediateOne(id) {
     if (badge) { badge.className = 'badge badge-failed'; badge.style.cssText = ''; badge.textContent = 'failed'; }
     if (action) action.innerHTML =
       `<button class="btn btn-xs btn-success" id="rem-${id}" onclick="remediateOne(${id})" style="margin-right:.3rem">↺ Retry</button>
-       <span style="color:#D13212;font-size:.62rem">Remediation failed: ${esc(apiError)}</span>`;
-    toast(`Remediation failed: ${apiError}`, 'err');
+       <span style="color:#D13212;font-size:.62rem">Failed: ${esc(apiError)}. Use CLI instead.</span>`;
+    toast(`Failed: ${apiError}. Use CLI instead.`, 'err');
   }
 }
 

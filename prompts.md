@@ -19,6 +19,21 @@
 
 ---
 
+## Turn 26
+**Prompt:**
+> After successful remediation send email via smtplib. .env SMTP settings. Email: Subject "Cloud Cost Optimizer — Resource Remediated", body with ResourceId/Name/Type/Region/Action/Savings/Timestamp/RemediatedBy. Toasts: success="Remediated. Email sent to {email}", email-fail="Remediated but email failed to send", boto3-fail="Failed: {error}. Use CLI instead." README note on Gmail App Password.
+
+**Action:** 6 files changed, no new dependencies.
+- `.env`: added SMTP_HOST/PORT/USERNAME/PASSWORD/FROM_EMAIL/NOTIFICATION_EMAIL.
+- `notifications/__init__.py` + `notifications/email_sender.py`: smtplib SMTP with STARTTLS, 10s timeout, specific exception handling for SMTPAuthenticationError. Returns (bool, str) tuple.
+- `engine/remediation.py`: added DEMO_MODE env check (default true) — skips boto3, marks finding remediated, returns full resource metadata. Added `_action_label()` helper.
+- `api/routes.py`: `POST /remediate/{id}` calls `send_remediation_email()` after success, adds `email_sent/email_error/notification_email` to response.
+- `index.html`: re-added API call alongside 10s timer via `Promise.all`. Three toast variants wired to `data.email_sent` / `data.email_error`. Failure path shows "Failed: {error}. Use CLI instead."
+- `README.md`: App Password instructions added.
+- Verified: success=True, action_taken correct, email_sent=False (sandbox DNS), email_error surfaced, DB status=remediated.
+
+---
+
 ## Turn 25
 **Prompt:**
 > Add role-based access control. Backend: role column on users (admin/viewer), first user always admin, role in JWT, POST /remediate + /remediate/bulk + DELETE /data + GET /users → admin only 403, GET /auth/me returns role. Frontend: register role dropdown with note, "Account created. Your role is: {role}" after register, username + role badge in sidebar (green=admin/grey=viewer), admin sees Remediate/Bulk/Clear/Users, viewer sees Copy CLI + grey banner.

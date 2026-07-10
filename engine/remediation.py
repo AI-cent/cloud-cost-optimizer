@@ -46,6 +46,25 @@ def remediate_finding(finding_id: int, db: Session) -> dict:
             "cli_alternative": cli_command,
         }
 
+    # Demo mode: skip boto3 and mark as remediated immediately
+    import os
+    if os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes"):
+        finding.status = "remediated"
+        finding.remediated_at = datetime.utcnow()
+        db.commit()
+        return {
+            "success": True,
+            "finding_id": finding_id,
+            "resource_id": resource.resource_id,
+            "resource_name": resource.resource_name,
+            "resource_type": resource.resource_type,
+            "region": resource.region,
+            "action_taken": _action_label(finding.finding_type, resource.resource_id),
+            "estimated_monthly_waste_usd": resource.monthly_cost_usd,
+            "status": "remediated",
+            "timestamp": finding.remediated_at,
+        }
+
     # Fast credential check — avoids boto3 hanging on network timeouts
     try:
         session = boto3.session.Session()
@@ -108,6 +127,17 @@ def remediate_finding(finding_id: int, db: Session) -> dict:
             "message": f"Unexpected error: {str(e)}",
             "cli_alternative": cli_command,
         }
+
+
+def _action_label(finding_type: str, resource_id: str) -> str:
+    labels = {
+        "unattached_ebs": f"Deleted EBS volume {resource_id}",
+        "idle_ec2":       f"Stopped EC2 instance {resource_id}",
+        "orphaned_eip":   f"Released Elastic IP {resource_id}",
+        "idle_alb":       f"Deleted Load Balancer {resource_id}",
+        "old_snapshot":   f"Deleted Snapshot {resource_id}",
+    }
+    return labels.get(finding_type, f"Remediated {resource_id}")
 
 
 def _execute_boto3(finding_type: str, resource) -> str:
