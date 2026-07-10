@@ -113,18 +113,22 @@ def remediate_finding(finding_id: int, db: Session) -> dict:
     except ClientError as e:
         finding.status = "failed"
         db.commit()
+        aws_msg = e.response.get("Error", {}).get("Message", str(e))
         return {
             "success": False,
-            "message": f"AWS API error: {e.response['Error']['Message']}",
+            "message": f"AWS error: {aws_msg}",
             "cli_alternative": cli_command,
         }
 
     except Exception as e:
         finding.status = "failed"
         db.commit()
+        # Log full traceback server-side; return safe message to client
+        import logging
+        logging.getLogger(__name__).exception("Unexpected error remediating finding %d", finding_id)
         return {
             "success": False,
-            "message": f"Unexpected error: {str(e)}",
+            "message": "An unexpected error occurred. Check server logs.",
             "cli_alternative": cli_command,
         }
 

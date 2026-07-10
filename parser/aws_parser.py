@@ -1,8 +1,11 @@
 import csv
 import io
+import logging
 import re
 from datetime import datetime
 from typing import List, Dict, Any
+
+logger = logging.getLogger(__name__)
 
 
 # Canonical field name → list of accepted aliases (all lowercased, stripped)
@@ -59,46 +62,57 @@ def parse_aws_csv(file_content: bytes) -> List[Dict[str, Any]]:
         )
 
     resources = []
-    for row in reader:
-        # Re-key: normalized CSV header → canonical name
-        canonical_row = {}
-        for h, v in row.items():
-            if h is None:
-                continue
-            norm = _normalize_header(h)
-            canonical = alias_map.get(norm)
-            if canonical:
-                canonical_row[canonical] = (v or "").strip()
-
-        # Parse last_active_date — accept multiple formats
-        last_active_date = None
-        raw_date = canonical_row.get("last_active_date", "")
-        if raw_date:
-            for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
-                try:
-                    last_active_date = datetime.strptime(raw_date, fmt)
-                    break
-                except ValueError:
-                    continue
-
-        # Parse monthly cost — strip currency symbols
-        raw_cost = re.sub(r"[^\d.]", "", canonical_row.get("monthly_cost_usd", "0") or "0")
+    for row_num, row in enumerate(reader, start=2):  # row 1 = header
         try:
-            monthly_cost = float(raw_cost)
-        except ValueError:
-            monthly_cost = 0.0
+            # Re-key: normalized CSV header → canonical name
+            canonical_row = {}
+            for h, v in row.items():
+                if h is None:
+                    continue
+                norm = _normalize_header(h)
+                canonical = alias_map.get(norm)
+                if canonical:
+                    canonical_row[canonical] = (v or "").strip()
 
-        resource = {
-            "resource_id":      canonical_row.get("resource_id", ""),
-            "resource_name":    canonical_row.get("resource_name", ""),
-            "resource_type":    canonical_row.get("resource_type", ""),
-            "region":           canonical_row.get("region", "us-east-1"),
-            "monthly_cost_usd": monthly_cost,
-            "status":           canonical_row.get("status", ""),
-            "last_active_date": last_active_date,
-        }
+            # Parse last_active_date — accept multiple formats
+            last_active_date = None
+            raw_date = canonical_row.get("last_active_date", "")
+            if raw_date:
+                for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+                    try:
+                        last_active_date = datetime.strptime(raw_date, fmt)
+                        break
+                    except ValueError:
+                        continue
+                if last_active_date is None:
+                    logger.warning("Row %d: unrecognised date format %r — skipping date.", row_num, raw_date)
 
-        if resource["resource_id"]:
+            # Parse monthly cost — strip currency symbols
+            raw_cost = re.sub(r"[^\d.]", "", canonical_row.get("monthly_cost_usd", "0") or "0")
+            try:
+                monthly_cost = float(raw_cost) if raw_cost else 0.0
+            except ValueError:
+                logger.warning("Row %d: invalid cost value %r — defaulting to 0.0.", row_num, raw_cost)
+                monthly_cost = 0.0
+
+            resource = {
+                "resource_id":      canonical_row.get("resource_id", ""),
+                "resource_name":    canonical_row.get("resource_name", ""),
+                "resource_type":    canonical_row.get("resource_type", ""),
+                "region":           canonical_row.get("region", "us-east-1"),
+                "monthly_cost_usd": monthly_cost,
+                "status":           canonical_row.get("status", ""),
+                "last_active_date": last_active_date,
+            }
+
+            if not resource["resource_id"]:
+                logger.warning("Row %d: missing resource_id — skipping.", row_num)
+                continue
+
             resources.append(resource)
+
+        except Exception as exc:
+            logger.warning("Row %d: unexpected error %s — skipping row.", row_num, exc)
+            continue
 
     return resources

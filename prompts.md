@@ -19,6 +19,26 @@
 
 ---
 
+## Turn 28
+**Prompt:**
+> Add validation: POST /ingest .csv only, no empty files, required cols, MonthlyCost numeric, max 10MB. POST /auth/register username 3-50 alphanumeric+_, valid email, password min 8+uppercase+number. POST /remediate/bulk non-empty list, positive integers only.
+
+**Action:** `api/routes.py` — added Pydantic `@field_validator` on `RegisterRequest` (username regex, email regex, password rules) and `BulkRemediateRequest` (non-empty, all positive). Ingest endpoint: `.csv` extension check, empty file 400, 10MB size cap 400. `main.py` — fixed `RequestValidationError` handler to stringify Pydantic error objects before JSON serialisation (was crashing with `TypeError: ValueError not JSON serializable`). 13/13 checks pass.
+
+---
+
+## Turn 27
+**Prompt:**
+> Add exception handling: aws_parser.py skip bad rows + log warning. orphan_detector.py each rule in own try/except. remediation.py catch ClientError return AWS message. All routes return JSON {error, detail} — 400/401/404/422/500. Auth: 401 "Invalid username or password" never reveal which.
+
+**Action:** 4 files changed.
+- `parser/aws_parser.py`: added `logging`, wrapped each row in `try/except`, logs `WARNING` on bad date/cost/missing resource_id and continues. Never raises on individual row failure.
+- `engine/orphan_detector.py`: each rule iteration in `try/except`, logs warning and calls `db.rollback()` on failure, continues to next rule.
+- `engine/remediation.py`: `ClientError` extracts `e.response["Error"]["Message"]`; generic `Exception` logs full traceback server-side, returns safe "An unexpected error occurred." to client.
+- `api/routes.py`: added `http_err(status, error, detail)` helper raising `HTTPException` with `{"error": ..., "detail": ...}` shape. Replaced all bare `raise HTTPException` calls. Auth message "Invalid username or password" — same for both wrong username and wrong password. `main.py`: added `RequestValidationError` handler (422) and global `Exception` handler (500) — no stack traces in responses. Verified: 7/7 checks pass.
+
+---
+
 ## Turn 26
 **Prompt:**
 > After successful remediation send email via smtplib. .env SMTP settings. Email: Subject "Cloud Cost Optimizer — Resource Remediated", body with ResourceId/Name/Type/Region/Action/Savings/Timestamp/RemediatedBy. Toasts: success="Remediated. Email sent to {email}", email-fail="Remediated but email failed to send", boto3-fail="Failed: {error}. Use CLI instead." README note on Gmail App Password.

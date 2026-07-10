@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from models import Resource, Finding, RemediationCommand
+
+logger = logging.getLogger(__name__)
 
 
 RULES = [
@@ -62,43 +65,50 @@ def run_detection(db: Session, resource_ids: list) -> int:
 
     for resource in resources:
         for rule in RULES:
-            if resource.resource_type != rule["resource_type"]:
-                continue
-            if not rule["condition"](resource):
-                continue
+            try:
+                if resource.resource_type != rule["resource_type"]:
+                    continue
+                if not rule["condition"](resource):
+                    continue
 
-            # Avoid duplicate findings for same resource + finding_type
-            existing = db.query(Finding).filter(
-                Finding.resource_id == resource.id,
-                Finding.finding_type == rule["finding_type"],
-                Finding.status == "pending",
-            ).first()
-            if existing:
-                continue
+                # Avoid duplicate findings for same resource + finding_type
+                existing = db.query(Finding).filter(
+                    Finding.resource_id == resource.id,
+                    Finding.finding_type == rule["finding_type"],
+                    Finding.status == "pending",
+                ).first()
+                if existing:
+                    continue
 
-            finding = Finding(
-                resource_id=resource.id,
-                finding_type=rule["finding_type"],
-                severity=rule["severity"],
-                estimated_monthly_waste_usd=resource.monthly_cost_usd,
-                status="pending",
-            )
-            db.add(finding)
-            db.flush()  # get finding.id
+                finding = Finding(
+                    resource_id=resource.id,
+                    finding_type=rule["finding_type"],
+                    severity=rule["severity"],
+                    estimated_monthly_waste_usd=resource.monthly_cost_usd,
+                    status="pending",
+                )
+                db.add(finding)
+                db.flush()
 
-            cli_template = CLI_TEMPLATES.get(resource.resource_type, "")
-            cli_command = cli_template.format(
-                resource_id=resource.resource_id,
-                region=resource.region,
-            )
+                cli_template = CLI_TEMPLATES.get(resource.resource_type, "")
+                cli_command = cli_template.format(
+                    resource_id=resource.resource_id,
+                    region=resource.region,
+                )
+                cmd = RemediationCommand(
+                    finding_id=finding.id,
+                    command_type="aws_cli",
+                    command_text=cli_command,
+                )
+                db.add(cmd)
+                findings_created += 1
 
-            cmd = RemediationCommand(
-                finding_id=finding.id,
-                command_type="aws_cli",
-                command_text=cli_command,
-            )
-            db.add(cmd)
-            findings_created += 1
+            except Exception as exc:
+                logger.warning(
+                    "Rule %r failed for resource %r: %s — skipping.",
+                    rule.get("finding_type"), resource.resource_id, exc
+                )
+                db.rollback()
 
     db.commit()
     return findings_created

@@ -1,12 +1,22 @@
+import logging
+import re as _re
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Optional
 from datetime import datetime
 import os
+
+MAX_CSV_BYTES = 10 * 1024 * 1024  # 10 MB
+
+logger = logging.getLogger(__name__)
+
+
+def http_err(status: int, error: str, detail: str):
+    raise HTTPException(status_code=status, detail={"error": error, "detail": detail})
 
 from database import get_db
 from models import User, Resource, Finding, RemediationCommand
@@ -31,6 +41,35 @@ class RegisterRequest(BaseModel):
     password: str
     role: Optional[str] = "viewer"
 
+    @field_validator("username")
+    @classmethod
+    def username_valid(cls, v: str) -> str:
+        v = v.strip()
+        if not (3 <= len(v) <= 50):
+            raise ValueError("Username must be 3–50 characters.")
+        if not _re.fullmatch(r"[A-Za-z0-9_]+", v):
+            raise ValueError("Username may only contain letters, numbers, and underscores.")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def email_valid(cls, v: str) -> str:
+        v = v.strip()
+        if not _re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", v):
+            raise ValueError("Invalid email address.")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def password_valid(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        if not _re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter.")
+        if not _re.search(r"\d", v):
+            raise ValueError("Password must contain at least one number.")
+        return v
+
 
 class LoginRequest(BaseModel):
     username: str
@@ -39,6 +78,15 @@ class LoginRequest(BaseModel):
 
 class BulkRemediateRequest(BaseModel):
     finding_ids: List[int]
+
+    @field_validator("finding_ids")
+    @classmethod
+    def ids_valid(cls, v: List[int]) -> List[int]:
+        if not v:
+            raise ValueError("finding_ids must not be empty.")
+        if any(i <= 0 for i in v):
+            raise ValueError("All finding_ids must be positive integers.")
+        return v
 
 
 # --------------------------------------------------------------------------- #
@@ -50,16 +98,16 @@ def require_admin(payload: dict, db: Session):
     username = payload.get("sub")
     user = db.query(User).filter(User.username == username).first()
     if not user or user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required.")
+        http_err(403, "Forbidden", "Admin access required.")
     return user
 
 
 @router.post("/auth/register")
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == req.username).first():
-        raise HTTPException(status_code=400, detail="Username already exists.")
+        http_err(400, "Bad request", "Username already exists.")
     if db.query(User).filter(User.email == req.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered.")
+        http_err(400, "Bad request", "Email already registered.")
 
     # First registered user is always admin regardless of input
     is_first = db.query(User).count() == 0
@@ -81,10 +129,11 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 @router.post("/auth/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == req.username).first()
+    # Never reveal whether username or password is wrong
     if not user or not verify_password(req.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid username or password.")
+        http_err(401, "Unauthorised", "Invalid username or password.")
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="Account is disabled.")
+        http_err(403, "Forbidden", "Account is disabled.")
     token = create_access_token({"sub": user.username, "user_id": user.id, "role": user.role})
     return {"access_token": token, "token_type": "bearer"}
 
@@ -94,7 +143,7 @@ def get_me(payload: dict = Depends(jwt_bearer), db: Session = Depends(get_db)):
     username = payload.get("sub")
     user = db.query(User).filter(User.username == username).first()
     if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
+        http_err(404, "Not found", "User not found.")
     return {
         "id": user.id,
         "username": user.username,
@@ -128,17 +177,24 @@ async def ingest(
     payload: dict = Depends(jwt_bearer),
     db: Session = Depends(get_db),
 ):
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only .csv files are accepted.")
+    if not (file.filename or "").endswith(".csv"):
+        http_err(400, "Bad request", "Only .csv files are accepted.")
 
     content = await file.read()
+
+    if not content:
+        http_err(400, "Bad request", "Uploaded file is empty.")
+
+    if len(content) > MAX_CSV_BYTES:
+        http_err(400, "Bad request", f"File exceeds maximum size of 10 MB (got {len(content)//1024} KB).")
+
     try:
         resources_data = parse_aws_csv(content)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        http_err(422, "Validation error", str(e))
 
     if not resources_data:
-        raise HTTPException(status_code=400, detail="No valid resources found in CSV.")
+        http_err(400, "Bad request", "No valid resources found in CSV.")
 
     user_id = payload.get("user_id")
     inserted_ids = []
@@ -209,7 +265,7 @@ def get_remediation_command(
 ):
     finding = db.query(Finding).filter(Finding.id == finding_id).first()
     if not finding:
-        raise HTTPException(status_code=404, detail="Finding not found.")
+        http_err(404, "Not found", "Finding not found.")
     cmd = finding.remediation_commands[0] if finding.remediation_commands else None
     return {
         "finding_id": finding_id,
@@ -227,7 +283,7 @@ def get_finding_status(
 ):
     finding = db.query(Finding).filter(Finding.id == finding_id).first()
     if not finding:
-        raise HTTPException(status_code=404, detail="Finding not found.")
+        http_err(404, "Not found", "Finding not found.")
     return {
         "finding_id": finding_id,
         "status": finding.status,
