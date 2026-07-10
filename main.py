@@ -1,11 +1,14 @@
 import logging
+import os
+from dotenv import load_dotenv
+
+# Load .env BEFORE any module that reads env vars (especially auth_handler)
+load_dotenv()
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from dotenv import load_dotenv
-import os
+from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,8 +18,6 @@ logging.basicConfig(
 from database import engine, Base
 from api.routes import router
 from sqlalchemy import text
-
-load_dotenv()
 
 # Create all DB tables on startup
 Base.metadata.create_all(bind=engine)
@@ -36,6 +37,18 @@ app = FastAPI(
     title=os.getenv("APP_NAME", "Cloud Cost Optimizer"),
     description="API-first Cloud Cost Optimizer & Remediation Engine",
     version="1.0.0",
+)
+
+# ── CORS: restrict to localhost origins only ─────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ── Standardised error responses ────────────────────────────────────────────

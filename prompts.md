@@ -278,3 +278,25 @@ Added: loading spinner overlay, global error banner, `escHtml()` XSS protection,
 - Fixed: route ordering (`/remediate/bulk` before `/{finding_id}`), Starlette Jinja2 API compat, test DB patching
 
 ---
+
+---
+
+## Turn 29
+**Prompt:**
+> Add security:
+> - Sanitize resource IDs in CLI commands — keep only alphanumeric, hyphens, underscores, colons
+> - Validate region values — letters, numbers, hyphens only
+> - CORS: localhost origins only
+> - Never expose file paths, stack traces in API responses
+> - JWT_SECRET_KEY from .env only — startup error if missing or set to default
+> - Never store or return plaintext passwords or hashes
+> - Rate limit POST /auth/login: 5 attempts/min/IP → 429
+
+**Action:** Implemented all 7 security hardening items.
+- `auth/auth_handler.py`: Added startup RuntimeError guard — server refuses to start if JWT_SECRET_KEY is absent or matches any known insecure default
+- `.env`: Replaced placeholder JWT_SECRET_KEY with a cryptographically random 64-char hex value
+- `main.py`: Moved `load_dotenv()` before all app imports so the auth_handler guard fires at startup. Added CORSMiddleware restricted to `http://localhost:8000` and `http://127.0.0.1:8000` only
+- `engine/orphan_detector.py`: Added `_sanitize_resource_id()` (strips everything except `[A-Za-z0-9\-_:/]`) and `_sanitize_region()` (strips everything except `[A-Za-z0-9\-]`); applied before every CLI template format call
+- `api/routes.py`: Added in-memory sliding-window rate limiter (`_check_login_rate_limit`); `/auth/login` raises HTTP 429 after 5 attempts/min/IP. Confirmed `/users` and `/auth/me` return no `hashed_password` fields
+- File paths and stack traces already suppressed by global exception handler (Turn 24); stack traces log server-side only; all responses use `{"error": ..., "detail": ...}` shape with safe messages
+- Verified: startup guard fires on default key, sanitizer strips shell injection chars, rate limiter blocks at attempt #6

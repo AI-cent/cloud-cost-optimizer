@@ -6,7 +6,16 @@ import os
 
 load_dotenv()
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "fallback-secret-change-me")
+_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+_DEFAULT_KEYS = {"", "fallback-secret-change-me", "changeme", "secret", "your-secret-key"}
+
+if not _SECRET_KEY or _SECRET_KEY in _DEFAULT_KEYS:
+    raise RuntimeError(
+        "JWT_SECRET_KEY is missing or set to an insecure default. "
+        "Set a strong random value in your .env file before starting the server."
+    )
+
+SECRET_KEY = _SECRET_KEY
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 EXPIRY_HOURS = int(os.getenv("JWT_EXPIRY_HOURS", "24"))
 

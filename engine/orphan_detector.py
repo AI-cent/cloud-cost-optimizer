@@ -1,9 +1,23 @@
 import logging
+import re
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from models import Resource, Finding, RemediationCommand
 
 logger = logging.getLogger(__name__)
+
+_SAFE_RESOURCE_ID = re.compile(r"[^A-Za-z0-9\-_:/]")
+_SAFE_REGION      = re.compile(r"[^A-Za-z0-9\-]")
+
+
+def _sanitize_resource_id(value: str) -> str:
+    """Keep only alphanumeric, hyphens, underscores, colons, and forward-slashes (for ARNs)."""
+    return _SAFE_RESOURCE_ID.sub("", value or "")
+
+
+def _sanitize_region(value: str) -> str:
+    """Keep only letters, numbers, and hyphens (e.g. us-east-1)."""
+    return _SAFE_REGION.sub("", value or "")
 
 
 RULES = [
@@ -92,8 +106,8 @@ def run_detection(db: Session, resource_ids: list) -> int:
 
                 cli_template = CLI_TEMPLATES.get(resource.resource_type, "")
                 cli_command = cli_template.format(
-                    resource_id=resource.resource_id,
-                    region=resource.region,
+                    resource_id=_sanitize_resource_id(resource.resource_id),
+                    region=_sanitize_region(resource.region),
                 )
                 cmd = RemediationCommand(
                     finding_id=finding.id,

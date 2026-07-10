@@ -1,5 +1,7 @@
 import logging
 import re as _re
+import time
+from collections import defaultdict
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -13,6 +15,27 @@ import os
 MAX_CSV_BYTES = 10 * 1024 * 1024  # 10 MB
 
 logger = logging.getLogger(__name__)
+
+# ── In-memory rate limiter for /auth/login ──────────────────────────────────
+# Tracks (ip → list of attempt timestamps within the current window)
+_LOGIN_ATTEMPTS: dict = defaultdict(list)
+_LOGIN_RATE_LIMIT = 5      # max attempts
+_LOGIN_WINDOW_SEC = 60     # per window (seconds)
+
+
+def _check_login_rate_limit(ip: str) -> None:
+    """Raise 429 if the IP has exceeded the login rate limit."""
+    now = time.monotonic()
+    window_start = now - _LOGIN_WINDOW_SEC
+    attempts = _LOGIN_ATTEMPTS[ip]
+    # Prune timestamps outside the window
+    _LOGIN_ATTEMPTS[ip] = [t for t in attempts if t > window_start]
+    if len(_LOGIN_ATTEMPTS[ip]) >= _LOGIN_RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail={"error": "Too many requests", "detail": "Too many login attempts. Please wait 1 minute before trying again."},
+        )
+    _LOGIN_ATTEMPTS[ip].append(now)
 
 
 def http_err(status: int, error: str, detail: str):
@@ -127,7 +150,11 @@ def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/auth/login")
-def login(req: LoginRequest, db: Session = Depends(get_db)):
+def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    # Rate-limit by client IP before doing any DB work
+    client_ip = request.client.host if request.client else "unknown"
+    _check_login_rate_limit(client_ip)
+
     user = db.query(User).filter(User.username == req.username).first()
     # Never reveal whether username or password is wrong
     if not user or not verify_password(req.password, user.hashed_password):
