@@ -35,8 +35,8 @@ Industry research shows companies waste **30–35% of their cloud budget** on re
 | Database | SQLite + SQLAlchemy ORM |
 | Auth | JWT (python-jose) + bcrypt password hashing |
 | Frontend | Jinja2 templates + Chart.js 4.4.0 |
-| Cloud SDK | boto3 (AWS) — ready for live credentials |
-| Notifications | Gmail SMTP via smtplib STARTTLS |
+| Cloud SDK | AWS SDK — ready for live credentials |
+| Notifications | SMTP email notifications via smtplib STARTTLS |
 | Logging | Python logging — console + rotating app.log |
 
 ### End-to-End Flow
@@ -50,8 +50,8 @@ Industry research shows companies waste **30–35% of their cloud budget** on re
                                                     ▼
 ┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐
 │ Email Alert │◀────│  Remediate  │◀────│  Dashboard +        │
-│  (Gmail)    │     │ (simulated, │     │  Findings Table     │
-└─────────────┘     │  boto3-ready│     │  + Charts           │
+│             │     │ (simulated, │     │  Findings Table     │
+└─────────────┘     │  API-ready) │     │  + Charts           │
                     └─────────────┘     └─────────────────────┘
 ```
 
@@ -86,10 +86,10 @@ Drag-and-drop CSV upload from the dashboard. The parser validates every row indi
 | `idle_alb` | Load Balancer | Status = `idle` | High |
 | `old_snapshot` | Snapshot | Created > 90 days ago | Low |
 
-**Sample run: 10 findings detected — $1,844.50/month in waste.**
+**Sample run: 10 findings detected across 20 ingested resources.**
 
 ### Step 4 — Remediate
-Admin clicks Remediate → confirmation modal (with resource name, type, and action verb) → 10-second simulation → finding marked remediated → email notification sent via Gmail SMTP. Viewer sees the same table but gets Copy CLI only.
+Admin clicks Remediate → user confirmation popup (with resource name, type, and action verb) → 10-second simulation → finding marked remediated → email notification sent. Viewer sees the same table but gets Copy CLI only.
 
 ---
 
@@ -114,8 +114,8 @@ Admin clicks Remediate → confirmation modal (with resource name, type, and act
 
 ---
 
-### 📸 Screenshot 4 — Confirmation Modal
-*"Stop EC2 Instance?" modal with resource name (legacy-reporting-srv), action (will be stopped), and Yes/Cancel buttons. Prevents accidental remediation.*
+### 📸 Screenshot 4 — User Confirmation Popup
+*"Stop EC2 Instance?" confirmation popup with resource name (legacy-reporting-srv), action (will be stopped), and Yes/Cancel buttons. Prevents accidental remediation.*
 
 ---
 
@@ -129,7 +129,7 @@ Admin clicks Remediate → confirmation modal (with resource name, type, and act
 
 ---
 
-> **Sample data:** `aws_billing.csv` — 20 resources, 10 findings, **$1,844.50/month** in detected waste.
+> **Sample data:** `aws_billing.csv` — 20 resources ingested, 10 orphaned findings detected.
 
 ---
 
@@ -158,14 +158,14 @@ Admin clicks Remediate → confirmation modal (with resource name, type, and act
 - Pydantic validators on all input: username format, email format, password strength, file type, file size, finding IDs
 
 ### Observability
-- Structured logging to console AND rotating `app.log` (5 MB, 3 backups)
+- Structured logging to console, Database, and rotating `app.log` (5 MB, 3 backups)
 - `LOGIN_SUCCESS [INFO]`, `LOGIN_FAILURE [WARNING]`, `INGEST_COMPLETE [INFO]`, `FINDING_DETECTED [INFO]`, `REMEDIATION_SUCCESS [INFO]`, `REMEDIATION_ERROR [ERROR]`
 - Each log line includes entity IDs and timestamps for traceability
 
 ### AWS Remediation
 - 10-second demo simulation in `DEMO_MODE=true` — zero AWS API calls
-- Real boto3 API calls ready: credential check at startup, per-resource-type dispatch, graceful fallback to CLI command if credentials not configured
-- Email notification via Gmail SMTP (STARTTLS) sent in FastAPI `BackgroundTasks` — never blocks API response
+- Live AWS API calls ready: credential check at startup, per-resource-type dispatch, graceful fallback to CLI command if credentials not configured
+- Email notification via SMTP (STARTTLS) sent in FastAPI `BackgroundTasks` — never blocks API response
 
 ---
 
@@ -215,7 +215,7 @@ This project was built using a deliberate "Lead Architect Mode" workflow:
 - AWS Organizations support for multi-account visibility from a single dashboard
 
 ### Remediation
-- **Live boto3 remediation** with real AWS credentials — the API endpoints and boto3 dispatch logic are already built, just swap `DEMO_MODE=false` and configure credentials
+- **Live AWS API remediation** with real credentials — the API endpoints and AWS dispatch logic are already built, just swap `DEMO_MODE=false` and configure credentials
 - Approval workflow for Critical severity findings — require second Admin confirmation before execution
 - Dry-run mode: generate remediation plan with projected savings before executing
 
