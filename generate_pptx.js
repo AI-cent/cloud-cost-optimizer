@@ -203,14 +203,14 @@ async function build() {
       align: "center", valign: "middle",
     });
 
-    // Divider line between two paths
+    // Split arrow — all lines orange to match main flow
     s.addShape("line", {
       x: PX + 0.25, y: BY + BH / 2, w: 0, h: -0.4,
       line: { color: C.orange, width: 1.5 },
     });
     s.addShape("line", {
       x: PX + 0.25, y: BY + BH / 2, w: 0, h: 0.58,
-      line: { color: C.grey, width: 1.5 },
+      line: { color: C.orange, width: 1.5 },
     });
     s.addShape("line", {
       x: PX + 0.25, y: BY + 0.1, w: 0.55, h: 0,
@@ -218,7 +218,7 @@ async function build() {
     });
     s.addShape("line", {
       x: PX + 0.25, y: BY + BH - 0.18, w: 0.55, h: 0,
-      line: { color: C.grey, width: 1.5 },
+      line: { color: C.orange, width: 1.5 },
     });
 
     // Stack label
@@ -280,6 +280,15 @@ async function build() {
         fontSize: 10, fontFace: "Calibri", color: i === 0 ? C.orange : C.ltgrey,
         align: "left", valign: "middle",
       });
+    });
+    // Upload CSV drag-drop zone
+    s.addShape("rect", {
+      x: 0.12, y: 2.68, w: SBW - 0.22, h: 0.72,
+      fill: { color: "1A2A38" }, line: { color: C.orange, width: 1, dashType: "dash" },
+    });
+    s.addText("⬆ Upload CSV\nDrag & Drop", {
+      x: 0.12, y: 2.68, w: SBW - 0.22, h: 0.72,
+      fontSize: 8, color: C.ltgrey, align: "center", valign: "middle",
     });
     // Admin badge
     s.addShape("rect", {
@@ -364,30 +373,34 @@ async function build() {
       showPercent: false,
     });
 
-    // Findings table (mini)
+    // Findings table (mini) — Admin sees Remediate + Copy CLI
     const rows = [
       [{ text: "Resource ID", options: { bold: true, color: C.white, fill: { color: C.dark } } },
        { text: "Type", options: { bold: true, color: C.white, fill: { color: C.dark } } },
        { text: "Severity", options: { bold: true, color: C.white, fill: { color: C.dark } } },
        { text: "Waste/mo", options: { bold: true, color: C.white, fill: { color: C.dark } } },
-       { text: "Action", options: { bold: true, color: C.white, fill: { color: C.dark } } }],
+       { text: "Remediate", options: { bold: true, color: C.white, fill: { color: C.dark } } },
+       { text: "Copy CLI", options: { bold: true, color: C.white, fill: { color: C.dark } } }],
       ["i-0a1b2c3d4e5f6789a", "EC2 Instance",  "Critical", "$780.00",
-       { text: "Remediate", options: { bold: true, color: C.white, fill: { color: C.orange } } }],
+       { text: "Remediate", options: { bold: true, color: C.white, fill: { color: C.orange } } },
+       { text: "Copy CLI",  options: { bold: true, color: C.white, fill: { color: C.dark } } }],
       ["vol-0a1b2c3d4e5f6789", "EBS Volume",    "High",     "$210.00",
-       { text: "Remediate", options: { bold: true, color: C.white, fill: { color: C.orange } } }],
+       { text: "Remediate", options: { bold: true, color: C.white, fill: { color: C.orange } } },
+       { text: "Copy CLI",  options: { bold: true, color: C.white, fill: { color: C.dark } } }],
       ["arn:aws:...:legacy-auth-alb", "Load Balancer", "High", "$190.00",
-       { text: "Remediate", options: { bold: true, color: C.white, fill: { color: C.orange } } }],
+       { text: "Remediate", options: { bold: true, color: C.white, fill: { color: C.orange } } },
+       { text: "Copy CLI",  options: { bold: true, color: C.white, fill: { color: C.dark } } }],
     ];
     s.addTable(rows, {
       x: CX, y: 3.55, w: W - CX - 0.15, h: 1.4,
-      colW: [2.4, 1.4, 1.0, 0.85, 1.0],
+      colW: [1.9, 1.2, 0.85, 0.75, 1.0, 0.9],
       fontSize: 8, fontFace: "Calibri", color: C.dark,
       border: { pt: 0.5, color: C.ltgrey },
       fill: { color: C.white },
     });
 
     // Caption
-    s.addText("Admin sees the Remediate button — executes directly on AWS using admin credentials", {
+    s.addText("Admin: Upload CSV · Ingest · Remediate via AWS API · Copy CLI command", {
       x: CX, y: H - 0.32, w: W - CX - 0.2, h: 0.2,
       fontSize: 7.5, fontFace: "Calibri", color: C.grey, italic: true,
     });
@@ -418,6 +431,15 @@ async function build() {
       x: 0.12, y: 1.5, w: SBW - 0.2, h: 0.32,
       fontSize: 10, fontFace: "Calibri", color: C.orange,
       align: "left", valign: "middle",
+    });
+    // Upload CSV drag-drop zone
+    s.addShape("rect", {
+      x: 0.12, y: 1.9, w: SBW - 0.22, h: 0.72,
+      fill: { color: "1A2A38" }, line: { color: C.ltgrey, width: 1, dashType: "dash" },
+    });
+    s.addText("⬆ Upload CSV\nDrag & Drop", {
+      x: 0.12, y: 1.9, w: SBW - 0.22, h: 0.72,
+      fontSize: 8, color: C.ltgrey, align: "center", valign: "middle",
     });
 
     // Viewer badge (grey)
@@ -489,7 +511,7 @@ async function build() {
       fill: { color: C.white },
     });
 
-    s.addText("Viewer copies the CLI command and runs it manually in AWS Console or terminal", {
+    s.addText("Viewer: Upload CSV · Ingest · Copy CLI command — no remediation access", {
       x: CX, y: H - 0.32, w: W - CX - 0.2, h: 0.2,
       fontSize: 7.5, fontFace: "Calibri", color: C.grey, italic: true,
     });
