@@ -2,12 +2,22 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from models import Finding, Resource, RemediationCommand
 
+# Import boto3 once at module level so exception classes are in scope for except clauses.
+try:
+    import boto3
+    from botocore.exceptions import NoCredentialsError, ClientError
+    BOTO3_AVAILABLE = True
+except ImportError:
+    BOTO3_AVAILABLE = False
+    NoCredentialsError = Exception   # placeholder so except clause never matches on ImportError path
+    ClientError = Exception
+
 
 def remediate_finding(finding_id: int, db: Session) -> dict:
     """
     Attempt to remediate a finding via boto3.
     Falls back gracefully if AWS credentials are not configured.
-    Returns a result dict with success flag and message.
+    Returns a result dict with success flag and relevant fields.
     """
     finding = db.query(Finding).filter(Finding.id == finding_id).first()
     if not finding:
@@ -27,57 +37,81 @@ def remediate_finding(finding_id: int, db: Session) -> dict:
     )
     cli_command = cmd_record.command_text if cmd_record else "No CLI command available."
 
-    try:
-        import boto3
-        from botocore.exceptions import NoCredentialsError, ClientError
-
-        result = _execute_boto3(finding.finding_type, resource)
-
-        finding.status = "remediated"
-        finding.remediated_at = datetime.utcnow()
-        db.commit()
-
-        return {
-            "success": True,
-            "finding_id": finding_id,
-            "message": f"Successfully remediated {resource.resource_type} ({resource.resource_id}).",
-            "detail": result,
-        }
-
-    except ImportError:
+    if not BOTO3_AVAILABLE:
         finding.status = "failed"
         db.commit()
         return {
             "success": False,
-            "message": "boto3 not installed.",
+            "message": f"boto3 not installed. Use the CLI command instead: {cli_command}",
+            "cli_alternative": cli_command,
+        }
+
+    # Fast credential check — avoids boto3 hanging on network timeouts
+    try:
+        session = boto3.session.Session()
+        creds = session.get_credentials()
+        if creds is None:
+            raise NoCredentialsError()
+        creds = creds.get_frozen_credentials()
+        if not creds.access_key:
+            raise NoCredentialsError()
+    except NoCredentialsError:
+        finding.status = "failed"
+        db.commit()
+        return {
+            "success": False,
+            "message": f"AWS credentials not configured. Use the CLI command instead: {cli_command}",
+            "cli_alternative": cli_command,
+        }
+
+    try:
+        action_taken = _execute_boto3(finding.finding_type, resource)
+        finding.status = "remediated"
+        finding.remediated_at = datetime.utcnow()
+        db.commit()
+        return {
+            "success": True,
+            "finding_id": finding_id,
+            "resource_id": resource.resource_id,
+            "action_taken": action_taken,
+            "status": "remediated",
+            "timestamp": finding.remediated_at.isoformat(),
+            "message": f"Successfully remediated {resource.resource_type} ({resource.resource_id}).",
+        }
+
+    except NoCredentialsError:
+        finding.status = "failed"
+        db.commit()
+        return {
+            "success": False,
+            "message": (
+                f"AWS credentials not configured. "
+                f"Use the CLI command instead: {cli_command}"
+            ),
+            "cli_alternative": cli_command,
+        }
+
+    except ClientError as e:
+        finding.status = "failed"
+        db.commit()
+        return {
+            "success": False,
+            "message": f"AWS API error: {e.response['Error']['Message']}",
             "cli_alternative": cli_command,
         }
 
     except Exception as e:
-        error_str = str(e)
-        # No credentials — helpful message
-        if "NoCredentialsError" in error_str or "Unable to locate credentials" in error_str:
-            finding.status = "failed"
-            db.commit()
-            return {
-                "success": False,
-                "message": "AWS credentials not configured. Use the CLI command instead.",
-                "cli_alternative": cli_command,
-            }
-
         finding.status = "failed"
         db.commit()
         return {
             "success": False,
-            "message": f"AWS API error: {error_str}",
+            "message": f"Unexpected error: {str(e)}",
             "cli_alternative": cli_command,
         }
 
 
 def _execute_boto3(finding_type: str, resource) -> str:
-    import boto3
-
-    rid = resource.resource_id
+    rid    = resource.resource_id
     region = resource.region
 
     if finding_type == "unattached_ebs":

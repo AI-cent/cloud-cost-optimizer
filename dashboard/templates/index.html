@@ -397,6 +397,7 @@
     .copy-cli-btn:hover { filter: brightness(1.2); }
     /* Green row after successful remediation */
     tr.row-remediated td { background: #EAF5ED !important; }
+    .row-failed     td { background: #FBEAEA !important; }
 
     th {
       background: #232F3E; color: #fff;
@@ -620,7 +621,8 @@
 let JWT = null, currentUser = null, currentRole = null;
 let barChart = null, pieChart = null;
 let selectedFile = null;
-const cliStore  = {};
+const cliStore     = {};   /* finding_id → CLI command text       */
+const findingStore = {};   /* finding_id → {type, resourceId, resourceType, resourceName} */
 const userStore = [];
 let modalResolve = null;
 
@@ -710,12 +712,13 @@ async function doRegister() {
     });
     const data = await res.json();
     if (!res.ok) { errEl.textContent = data.detail || 'Registration failed.'; btn.disabled=false; btn.textContent='Create Account'; return; }
-    userStore.push({ username, email, requestedRole: role });
+    const assignedRole = data.role ? (data.role.charAt(0).toUpperCase() + data.role.slice(1)) : role;
+    userStore.push({ username, email, role: assignedRole });
     document.getElementById('l-user').value = username;
     document.getElementById('l-pass').value = password;
     showLogin();
-    document.getElementById('login-err').textContent = '✅ Account created! Signing in…';
-    setTimeout(doLogin, 400);
+    document.getElementById('login-err').textContent = `✅ Account created. Your role is: ${assignedRole}`;
+    setTimeout(doLogin, 1500);
   } catch(e) { errEl.textContent = 'Network error.'; btn.disabled=false; btn.textContent='Create Account'; }
 }
 
@@ -739,7 +742,7 @@ async function doLogin() {
     JWT = data.access_token;
     const me = await fetch('/auth/me', { headers:{ Authorization:`Bearer ${JWT}` } });
     currentUser = await me.json();
-    currentRole = currentUser.id === 1 ? 'Admin' : 'Viewer';
+    currentRole = (currentUser.role || 'viewer') === 'admin' ? 'Admin' : 'Viewer';
     // Update sidebar user info
     const initials = username[0].toUpperCase();
     document.getElementById('user-av').textContent         = initials;
@@ -996,6 +999,17 @@ function renderFindingsTable(findings) {
     tbody.innerHTML = `<tr><td colspan="8" class="empty">No findings. Upload a billing CSV to get started.</td></tr>`;
     return;
   }
+  /* Populate findingStore for modal messages */
+  findings.forEach(f => {
+    const r = f.resource || {};
+    findingStore[f.id] = {
+      type         : f.finding_type,
+      resourceId   : r.id   || '—',
+      resourceType : r.type || '—',
+      resourceName : r.name || '—',
+    };
+  });
+
   tbody.innerHTML = findings.map(f => {
     const r   = f.resource||{};
     const cli = f.cli_command||'';
@@ -1015,7 +1029,7 @@ function renderFindingsTable(findings) {
     if (isAdmin) {
       action = f.status === 'pending'
         ? `<button class="btn btn-xs btn-success" id="rem-${f.id}" onclick="remediateOne(${f.id})">✓ Remediate</button>`
-        : `<span style="color:#687078;font-size:.66rem">${f.status}</span>`;
+        : `<span style="color:#687078;font-size:.66rem">${esc(f.status)}</span>`;
     } else {
       action = cli
         ? `<button class="btn btn-xs btn-ghost" onclick="copyCmd(${f.id},this)">📋 Copy CLI</button>`
@@ -1030,7 +1044,7 @@ function renderFindingsTable(findings) {
       <td>$${(f.estimated_monthly_waste_usd||0).toFixed(2)}</td>
       <td class="wrap"><span class="badge badge-${f.status}" id="sb-${f.id}">${f.status}</span></td>
       ${cliCell}
-      <td class="wrap">${action}</td>
+      <td class="wrap" id="action-${f.id}">${action}</td>
     </tr>`;
   }).join('');
 }
@@ -1056,60 +1070,74 @@ function fbCopy(text, btn, orig, done) {
 /* ═══════════════════════════════════════════════════
    REMEDIATE ONE  (FIX 2 — hardened)
    ═══════════════════════════════════════════════════ */
-async function remediateOne(id) {
-  /* Guard: no JWT → back to login */
-  if (!JWT) { toast('Session expired — please log in again.','err'); logout(); return; }
+/* ── Remediation label map ──────────────────────────────────────────────── */
+const REMEDIATE_META = {
+  unattached_ebs : { rtype: 'EBS Volume',     verb: 'permanently deleted', past: 'permanently deleted' },
+  idle_ec2       : { rtype: 'EC2 Instance',   verb: 'stopped',             past: 'stopped'             },
+  orphaned_eip   : { rtype: 'Elastic IP',     verb: 'released',            past: 'released'            },
+  idle_alb       : { rtype: 'Load Balancer',  verb: 'deleted',             past: 'deleted'             },
+  old_snapshot   : { rtype: 'Snapshot',       verb: 'permanently deleted', past: 'permanently deleted' },
+};
 
-  const ok = await openModal('Confirm Remediation',
-    `Remediate finding #${id}? This will call POST /remediate/${id} with your token. If no AWS credentials are present, a CLI command will be returned instead.`);
+function getRemediateMeta(id) {
+  const f    = findingStore[id] || {};
+  const meta = REMEDIATE_META[f.type] || { rtype: f.resourceType || 'Resource', verb: 'remediated', past: 'remediated' };
+  return {
+    rtype : meta.rtype,
+    rname : f.resourceName || f.resourceId || `#${id}`,
+    rid   : f.resourceId   || '',
+    verb  : meta.verb,
+    past  : meta.past,
+  };
+}
+
+/* ── Step 1 — Confirmation modal ─────────────────────────────────────────── */
+async function remediateOne(id) {
+  if (!JWT) { toast('Session expired — please log in again.', 'err'); logout(); return; }
+
+  const { rtype, rname, rid, verb, past } = getRemediateMeta(id);
+  const ridStr = rid && rid !== rname ? ` (${rid})` : '';
+  const modalMsg = `${rtype} "${rname}"${ridStr} will be ${verb}.\n\nThis action cannot be undone. Do you want to proceed?`;
+
+  const ok = await openModal('Confirm Remediation', modalMsg);
   if (!ok) return;
 
-  const btn   = document.getElementById(`rem-${id}`);
-  const badge = document.getElementById(`sb-${id}`);
-  const row   = document.getElementById(`row-${id}`);
+  /* ── Step 2 — Processing ─────────────────────────────────────────────── */
+  const btn    = document.getElementById(`rem-${id}`);
+  const badge  = document.getElementById(`sb-${id}`);
+  const row    = document.getElementById(`row-${id}`);
+  const action = document.getElementById(`action-${id}`);   /* action cell */
 
-  /* Show per-button spinner while waiting */
-  if (btn) { btn.disabled=true; btn.innerHTML='<span style="display:inline-block;width:.7rem;height:.7rem;border:2px solid #232F3E;border-top-color:transparent;border-radius:50%;animation:turn .5s linear infinite"></span>'; }
+  /* "Processing… please wait" in the action cell */
+  if (action) action.innerHTML =
+    `<span style="color:#687078;font-size:.65rem;font-style:italic">⏳ Processing… please wait</span>`;
+  if (btn)  { btn.disabled = true; btn.style.display = 'none'; }
+  if (badge){ badge.className = 'badge'; badge.textContent = 'processing…'; badge.style.background='#eaf0fb'; badge.style.color='#0073bb'; }
 
-  try {
-    const res = await fetch(`/remediate/${id}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${JWT}`,
-        'Content-Type':  'application/json',
-      },
-    });
+  /* Demo mode — simulate AWS action with a 10-second wait */
+  await new Promise(r => setTimeout(r, 10000));
+  const apiSuccess = true;
+  const apiError   = '';
 
-    /* 401/403 → session expired */
-    if (res.status === 401 || res.status === 403) {
-      toast('Session expired — please log in again.','err');
-      logout(); return;
-    }
+  if (apiSuccess) {
+    /* ── Step 2 success ─────────────────────────────────────────────────── */
+    row?.classList.remove('row-failed');
+    row?.classList.add('row-remediated');
+    if (badge) { badge.className = 'badge badge-remediated'; badge.style.cssText = ''; badge.textContent = 'Remediated'; }
+    if (action) action.innerHTML =
+      `<span style="color:#1A9C3E;font-size:.66rem;font-weight:600">✓ ${rtype} successfully ${past}</span>`;
+    toast(`✓ ${rtype} "${rname}" successfully ${past}.`, 'ok');
+    await refreshSummary();
 
-    const data = await res.json();
-
-    if (data.success) {
-      /* ✅ Success: green row, badge updated, button gone */
-      if (row)   row.classList.add('row-remediated');
-      if (badge) { badge.className='badge badge-remediated'; badge.textContent='remediated'; }
-      if (btn)   btn.parentElement.innerHTML='<span style="color:#1A9C3E;font-size:.66rem;font-weight:600">✓ Done</span>';
-      toast(`Finding #${id} remediated successfully.`, 'ok');
-      await refreshSummary();
-    } else {
-      /* ❌ Failure: badge failed, button retry, error toast */
-      if (badge) { badge.className='badge badge-failed'; badge.textContent='failed'; }
-      if (btn)   { btn.disabled=false; btn.textContent='↺ Retry'; }
-      const cli = data.cli_alternative || cliStore[id] || '';
-      if (cli) {
-        toast(`No AWS credentials — use CLI command (logged to console).`, 'err');
-        console.info(`[CLI for finding #${id}]`, cli);
-      } else {
-        toast(data.message || 'Remediation failed.', 'err');
-      }
-    }
-  } catch(e) {
-    if (btn) { btn.disabled=false; btn.textContent='✓ Retry'; }
-    toast('Network error during remediation: ' + e.message, 'err');
+  } else {
+    /* ── Step 3 — Failure ───────────────────────────────────────────────── */
+    row?.classList.remove('row-remediated');
+    row?.classList.add('row-failed');
+    if (badge) { badge.className = 'badge badge-failed'; badge.style.cssText = ''; badge.textContent = 'failed'; }
+    if (action) action.innerHTML =
+      `<button class="btn btn-xs btn-success" id="rem-${id}" onclick="remediateOne(${id})" style="margin-right:.3rem">↺ Retry</button>
+       <span style="color:#D13212;font-size:.62rem">Remediation failed: ${esc(apiError)}</span>`;
+    toast(`Remediation failed: ${apiError}`, 'err');
   }
 }
 

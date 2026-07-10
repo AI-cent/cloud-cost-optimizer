@@ -28,6 +28,7 @@ class RegisterRequest(BaseModel):
     username: str
     email: str
     password: str
+    role: Optional[str] = "viewer"
 
 
 class LoginRequest(BaseModel):
@@ -43,20 +44,37 @@ class BulkRemediateRequest(BaseModel):
 # Auth endpoints
 # --------------------------------------------------------------------------- #
 
+def require_admin(payload: dict, db: Session):
+    """Raise 403 if the token belongs to a viewer."""
+    username = payload.get("sub")
+    user = db.query(User).filter(User.username == username).first()
+    if not user or user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required.")
+    return user
+
+
 @router.post("/auth/register")
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == req.username).first():
         raise HTTPException(status_code=400, detail="Username already exists.")
     if db.query(User).filter(User.email == req.email).first():
         raise HTTPException(status_code=400, detail="Email already registered.")
+
+    # First registered user is always admin regardless of input
+    is_first = db.query(User).count() == 0
+    role = "admin" if is_first else (req.role or "viewer").lower()
+    if role not in ("admin", "viewer"):
+        role = "viewer"
+
     user = User(
         username=req.username,
         email=req.email,
         hashed_password=hash_password(req.password),
+        role=role,
     )
     db.add(user)
     db.commit()
-    return {"message": f"User '{req.username}' registered successfully."}
+    return {"message": f"User '{req.username}' registered successfully.", "role": role}
 
 
 @router.post("/auth/login")
@@ -66,7 +84,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid username or password.")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled.")
-    token = create_access_token({"sub": user.username, "user_id": user.id})
+    token = create_access_token({"sub": user.username, "user_id": user.id, "role": user.role})
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -80,6 +98,7 @@ def get_me(payload: dict = Depends(jwt_bearer), db: Session = Depends(get_db)):
         "id": user.id,
         "username": user.username,
         "email": user.email,
+        "role": user.role,
         "created_at": user.created_at,
         "is_active": user.is_active,
     }
@@ -221,6 +240,7 @@ def remediate_bulk(
     payload: dict = Depends(jwt_bearer),
     db: Session = Depends(get_db),
 ):
+    require_admin(payload, db)
     succeeded = []
     failed = []
     for fid in req.finding_ids:
@@ -244,6 +264,7 @@ def remediate_one(
     payload: dict = Depends(jwt_bearer),
     db: Session = Depends(get_db),
 ):
+    require_admin(payload, db)
     result = remediate_finding(finding_id, db)
     return result
 
@@ -297,8 +318,19 @@ def get_summary(payload: dict = Depends(jwt_bearer), db: Session = Depends(get_d
     }
 
 
+@router.get("/users")
+def list_users(payload: dict = Depends(jwt_bearer), db: Session = Depends(get_db)):
+    require_admin(payload, db)
+    users = db.query(User).order_by(User.id).all()
+    return [
+        {"id": u.id, "username": u.username, "email": u.email, "role": u.role, "created_at": u.created_at, "is_active": u.is_active}
+        for u in users
+    ]
+
+
 @router.delete("/data")
 def clear_data(payload: dict = Depends(jwt_bearer), db: Session = Depends(get_db)):
+    require_admin(payload, db)
     db.query(RemediationCommand).delete()
     db.query(Finding).delete()
     db.query(Resource).delete()
