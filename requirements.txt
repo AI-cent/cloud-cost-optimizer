@@ -9,3 +9,4 @@ boto3
 python-dotenv
 pytest
 httpx
+python-pptx>=0.6.21
