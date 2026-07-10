@@ -120,7 +120,7 @@ Admin clicks Remediate → user confirmation popup (with resource name, type, an
 ---
 
 ### 📸 Screenshot 5 — Success State After Remediation
-*Row turns green. Toast notification: "✓ Remediated — email sent to nksolanki@gmail.com". 10-second simulation complete.*
+*Row turns green. Toast notification: "✓ Remediated — email sent to admin@company.com". 10-second simulation complete.*
 
 ---
 
