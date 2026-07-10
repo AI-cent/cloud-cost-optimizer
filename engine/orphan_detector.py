@@ -116,6 +116,13 @@ def run_detection(db: Session, resource_ids: list) -> int:
                 )
                 db.add(cmd)
                 findings_created += 1
+                logger.info(
+                    "FINDING_DETECTED resource_id=%s resource_type=%s finding_type=%s severity=%s",
+                    resource.resource_id,
+                    resource.resource_type,
+                    rule["finding_type"],
+                    rule["severity"],
+                )
 
             except Exception as exc:
                 logger.warning(

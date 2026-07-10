@@ -1,0 +1,299 @@
+2026-07-09 22:15:48,541 [ERROR] app: UNHANDLED_ERROR endpoint=POST /auth/register detail=(sqlite3.OperationalError) disk I/O error
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1147, in _commit_impl
+    self.engine.dialect.do_commit(self.connection)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 715, in do_commit
+    dbapi_connection.commit()
+sqlite3.OperationalError: disk I/O error
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 2683, in app
+    await route.handle(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 1753, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 2738, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 1773, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 1264, in handle
+    await app(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 150, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 136, in app
+    response = await f(request)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 690, in app
+    raw_response = await run_endpoint_function(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 346, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/anyio/to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 2596, in run_sync_in_worker_thread
+    return await future
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 1029, in run
+    result = context.run(func, *args)
+  File "/sessions/festive-relaxed-fermi/mnt/cloud-cost-optimizer/api/routes.py", line 150, in register
+    db.commit()
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2035, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 1323, in commit
+    trans.commit()
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 2642, in commit
+    self._do_commit()
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 2747, in _do_commit
+    self._connection_commit_impl()
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 2718, in _connection_commit_impl
+    self.connection._commit_impl()
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1149, in _commit_impl
+    self._handle_dbapi_exception(e, None, None, None, None)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1147, in _commit_impl
+    self.engine.dialect.do_commit(self.connection)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 715, in do_commit
+    dbapi_connection.commit()
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) disk I/O error
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-07-09 22:15:48,555 [ERROR] app: UNHANDLED_ERROR endpoint=POST /auth/login detail=(sqlite3.OperationalError) disk I/O error
+[SQL: SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.role AS users_role, users.created_at AS users_created_at, users.is_active AS users_is_active 
+FROM users 
+WHERE users.username = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('logtester', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: disk I/O error
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 2683, in app
+    await route.handle(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 1753, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 2738, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 1773, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 1264, in handle
+    await app(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 150, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 136, in app
+    response = await f(request)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 690, in app
+    raw_response = await run_endpoint_function(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 346, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/anyio/to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 2596, in run_sync_in_worker_thread
+    return await future
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 1029, in run
+    result = context.run(func, *args)
+  File "/sessions/festive-relaxed-fermi/mnt/cloud-cost-optimizer/api/routes.py", line 160, in login
+    user = db.query(User).filter(User.username == req.username).first()
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/query.py", line 2766, in first
+    return self.limit(1)._iter().first()  # type: ignore
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/query.py", line 2864, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2373, in execute
+    return self._execute_internal(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2271, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) disk I/O error
+[SQL: SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.role AS users_role, users.created_at AS users_created_at, users.is_active AS users_is_active 
+FROM users 
+WHERE users.username = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('logtester', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-07-09 22:15:48,565 [ERROR] app: UNHANDLED_ERROR endpoint=POST /auth/login detail=(sqlite3.OperationalError) disk I/O error
+[SQL: SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.role AS users_role, users.created_at AS users_created_at, users.is_active AS users_is_active 
+FROM users 
+WHERE users.username = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('logtester', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.OperationalError: disk I/O error
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/middleware/cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 2683, in app
+    await route.handle(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 1753, in handle
+    await self.original_router.handle(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 2738, in handle
+    await included_router._handle_selected(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 1773, in _handle_selected
+    await original_route.handle(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 1264, in handle
+    await app(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 150, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 136, in app
+    response = await f(request)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 690, in app
+    raw_response = await run_endpoint_function(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/fastapi/routing.py", line 346, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/anyio/to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 2596, in run_sync_in_worker_thread
+    return await future
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/anyio/_backends/_asyncio.py", line 1029, in run
+    result = context.run(func, *args)
+  File "/sessions/festive-relaxed-fermi/mnt/cloud-cost-optimizer/api/routes.py", line 160, in login
+    user = db.query(User).filter(User.username == req.username).first()
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/query.py", line 2766, in first
+    return self.limit(1)._iter().first()  # type: ignore
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/query.py", line 2864, in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2373, in execute
+    return self._execute_internal(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/session.py", line 2271, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+    result = conn.execute(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
+    return connection._execute_clauseelement(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
+    ret = self._execute_context(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+  File "/sessions/festive-relaxed-fermi/.local/lib/python3.10/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) disk I/O error
+[SQL: SELECT users.id AS users_id, users.username AS users_username, users.email AS users_email, users.hashed_password AS users_hashed_password, users.role AS users_role, users.created_at AS users_created_at, users.is_active AS users_is_active 
+FROM users 
+WHERE users.username = ?
+ LIMIT ? OFFSET ?]
+[parameters: ('logtester', 1, 0)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-07-09 22:16:09,789 [WARNING] api.routes: LOGIN_FAILURE username=logadmin ip=127.0.0.1 timestamp=2026-07-10T05:16:09.789620
+2026-07-09 22:16:09,995 [INFO] api.routes: LOGIN_SUCCESS username=logadmin ip=127.0.0.1 timestamp=2026-07-10T05:16:09.995908
+2026-07-09 22:16:10,029 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=vol-0a1b2c3d4e5f6789 resource_type=EBS Volume finding_type=unattached_ebs severity=High
+2026-07-09 22:16:10,030 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=vol-0b2c3d4e5f678901 resource_type=EBS Volume finding_type=unattached_ebs severity=High
+2026-07-09 22:16:10,031 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=i-0a1b2c3d4e5f6789a resource_type=EC2 Instance finding_type=idle_ec2 severity=Critical
+2026-07-09 22:16:10,031 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=i-0b2c3d4e5f6789ab1 resource_type=EC2 Instance finding_type=idle_ec2 severity=Critical
+2026-07-09 22:16:10,032 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=eipalloc-0a1b2c3de4f5 resource_type=Elastic IP finding_type=orphaned_eip severity=Medium
+2026-07-09 22:16:10,033 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=eipalloc-0b2c3d4ef5a6 resource_type=Elastic IP finding_type=orphaned_eip severity=Medium
+2026-07-09 22:16:10,033 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/legacy-auth-alb/0a1b2c3d resource_type=Load Balancer finding_type=idle_alb severity=High
+2026-07-09 22:16:10,034 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=arn:aws:elasticloadbalancing:eu-west-1:123456789012:loadbalancer/app/old-reporting-alb/0b2c3d4e resource_type=Load Balancer finding_type=idle_alb severity=High
+2026-07-09 22:16:10,034 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=snap-0a1b2c3d4e5f6789 resource_type=Snapshot finding_type=old_snapshot severity=Low
+2026-07-09 22:16:10,035 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=snap-0b2c3d4e5f678901 resource_type=Snapshot finding_type=old_snapshot severity=Low
+2026-07-09 22:16:10,037 [INFO] api.routes: INGEST_COMPLETE username=logadmin filename=aws_billing.csv rows=20 findings=10 timestamp=2026-07-10T05:16:10.037045
+2026-07-09 22:16:10,072 [INFO] engine.remediation: REMEDIATION_SUCCESS finding_id=3 resource_id=i-0a1b2c3d4e5f6789a resource_type=EC2 Instance mode=DEMO command_preview='aws ec2 stop-instances --instance-ids i-0a1b2c3d4e5f6789a --region us-east-1' timestamp=2026-07-10T05:16:10.070381
+2026-07-09 22:24:53,299 [INFO] api.routes: LOGIN_SUCCESS username=admin ip=127.0.0.1 timestamp=2026-07-10T05:24:53.299856
+2026-07-09 22:25:04,358 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=vol-0a1b2c3d4e5f6789 resource_type=EBS Volume finding_type=unattached_ebs severity=High
+2026-07-09 22:25:04,361 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=vol-0b2c3d4e5f678901 resource_type=EBS Volume finding_type=unattached_ebs severity=High
+2026-07-09 22:25:04,362 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=i-0a1b2c3d4e5f6789a resource_type=EC2 Instance finding_type=idle_ec2 severity=Critical
+2026-07-09 22:25:04,362 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=i-0b2c3d4e5f6789ab1 resource_type=EC2 Instance finding_type=idle_ec2 severity=Critical
+2026-07-09 22:25:04,363 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=eipalloc-0a1b2c3de4f5 resource_type=Elastic IP finding_type=orphaned_eip severity=Medium
+2026-07-09 22:25:04,363 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=eipalloc-0b2c3d4ef5a6 resource_type=Elastic IP finding_type=orphaned_eip severity=Medium
+2026-07-09 22:25:04,364 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/legacy-auth-alb/0a1b2c3d resource_type=Load Balancer finding_type=idle_alb severity=High
+2026-07-09 22:25:04,365 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=arn:aws:elasticloadbalancing:eu-west-1:123456789012:loadbalancer/app/old-reporting-alb/0b2c3d4e resource_type=Load Balancer finding_type=idle_alb severity=High
+2026-07-09 22:25:04,365 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=snap-0a1b2c3d4e5f6789 resource_type=Snapshot finding_type=old_snapshot severity=Low
+2026-07-09 22:25:04,366 [INFO] engine.orphan_detector: FINDING_DETECTED resource_id=snap-0b2c3d4e5f678901 resource_type=Snapshot finding_type=old_snapshot severity=Low
+2026-07-09 22:25:04,367 [INFO] api.routes: INGEST_COMPLETE username=admin filename=aws_billing.csv rows=20 findings=10 timestamp=2026-07-10T05:25:04.367540

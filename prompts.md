@@ -300,3 +300,25 @@ Added: loading spinner overlay, global error banner, `escHtml()` XSS protection,
 - `api/routes.py`: Added in-memory sliding-window rate limiter (`_check_login_rate_limit`); `/auth/login` raises HTTP 429 after 5 attempts/min/IP. Confirmed `/users` and `/auth/me` return no `hashed_password` fields
 - File paths and stack traces already suppressed by global exception handler (Turn 24); stack traces log server-side only; all responses use `{"error": ..., "detail": ...}` shape with safe messages
 - Verified: startup guard fires on default key, sanitizer strips shell injection chars, rate limiter blocks at attempt #6
+
+---
+
+## Turn 30
+**Prompt:**
+> Add Python logging (built-in module):
+> - Ingest: INFO — username, filename, row count, timestamp
+> - Detection: INFO — resource ID, type, finding type
+> - Remediation: INFO — finding ID, command preview
+> - Login success: INFO — username, timestamp
+> - Login failure: WARNING — username, IP
+> - API errors: ERROR — endpoint, detail
+> - Write to console AND app.log
+> - INFO=normal, WARNING=skipped rows+failed logins, ERROR=failures
+> Ingest CSV again and show app.log to confirm all types logged.
+
+**Action:** Implemented structured logging across all layers; verified with live server run.
+- `main.py`: Replaced `basicConfig` with dual handlers — `StreamHandler` (console) + `RotatingFileHandler` (5 MB, 3 backups). Log path from `LOG_FILE` env var (defaults to `app.log` beside `main.py`). Updated global exception handler to log `ERROR` with endpoint + detail.
+- `api/routes.py`: `LOGIN_FAILURE [WARNING]` (username + IP), `LOGIN_SUCCESS [INFO]` (username + IP + timestamp), `INGEST_COMPLETE [INFO]` (username, filename, rows, findings, timestamp).
+- `engine/orphan_detector.py`: `FINDING_DETECTED [INFO]` per finding (resource_id, resource_type, finding_type, severity).
+- `engine/remediation.py`: Moved `logging` import to module top. `REMEDIATION_SUCCESS [INFO]` in both DEMO and LIVE paths (finding_id, resource_id, resource_type, mode, command_preview truncated to 80 chars, timestamp). `REMEDIATION_ERROR [ERROR]` in catch-all with exc_info.
+- Verified: all 5 log event types appeared in `/tmp/app.log` with correct levels.

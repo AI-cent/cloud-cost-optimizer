@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime
 from sqlalchemy.orm import Session
 from models import Finding, Resource, RemediationCommand
+
+logger = logging.getLogger(__name__)
 
 # Import boto3 once at module level so exception classes are in scope for except clauses.
 try:
@@ -52,6 +55,15 @@ def remediate_finding(finding_id: int, db: Session) -> dict:
         finding.status = "remediated"
         finding.remediated_at = datetime.utcnow()
         db.commit()
+        cmd_preview = (cli_command[:80] + "…") if len(cli_command) > 80 else cli_command
+        logger.info(
+            "REMEDIATION_SUCCESS finding_id=%d resource_id=%s resource_type=%s mode=DEMO command_preview=%r timestamp=%s",
+            finding_id,
+            resource.resource_id,
+            resource.resource_type,
+            cmd_preview,
+            finding.remediated_at.isoformat(),
+        )
         return {
             "success": True,
             "finding_id": finding_id,
@@ -88,6 +100,15 @@ def remediate_finding(finding_id: int, db: Session) -> dict:
         finding.status = "remediated"
         finding.remediated_at = datetime.utcnow()
         db.commit()
+        cmd_preview = (cli_command[:80] + "…") if len(cli_command) > 80 else cli_command
+        logger.info(
+            "REMEDIATION_SUCCESS finding_id=%d resource_id=%s resource_type=%s mode=LIVE command_preview=%r timestamp=%s",
+            finding_id,
+            resource.resource_id,
+            resource.resource_type,
+            cmd_preview,
+            finding.remediated_at.isoformat(),
+        )
         return {
             "success": True,
             "finding_id": finding_id,
@@ -124,8 +145,7 @@ def remediate_finding(finding_id: int, db: Session) -> dict:
         finding.status = "failed"
         db.commit()
         # Log full traceback server-side; return safe message to client
-        import logging
-        logging.getLogger(__name__).exception("Unexpected error remediating finding %d", finding_id)
+        logger.error("REMEDIATION_ERROR finding_id=%d detail=%s", finding_id, str(e), exc_info=True)
         return {
             "success": False,
             "message": "An unexpected error occurred. Check server logs.",

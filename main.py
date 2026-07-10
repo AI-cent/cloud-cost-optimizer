@@ -10,10 +10,20 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+from logging.handlers import RotatingFileHandler
+
+_log_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
+_console_handler = logging.StreamHandler()
+_console_handler.setFormatter(_log_fmt)
+
+_log_file = os.getenv("LOG_FILE", os.path.join(os.path.dirname(__file__), "app.log"))
+_file_handler = RotatingFileHandler(
+    _log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
 )
+_file_handler.setFormatter(_log_fmt)
+
+logging.basicConfig(level=logging.INFO, handlers=[_console_handler, _file_handler])
 
 from database import engine, Base
 from api.routes import router
@@ -64,7 +74,10 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    logging.getLogger("app").exception("Unhandled error on %s %s", request.method, request.url.path)
+    logging.getLogger("app").error(
+        "UNHANDLED_ERROR endpoint=%s %s detail=%s",
+        request.method, request.url.path, str(exc), exc_info=True,
+    )
     return JSONResponse(
         status_code=500,
         content={"error": "Internal server error", "detail": "An unexpected error occurred."},

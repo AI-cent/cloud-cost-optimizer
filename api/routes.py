@@ -38,7 +38,9 @@ def _check_login_rate_limit(ip: str) -> None:
     _LOGIN_ATTEMPTS[ip].append(now)
 
 
-def http_err(status: int, error: str, detail: str):
+def http_err(status: int, error: str, detail: str, endpoint: str = ""):
+    if status >= 500:
+        logger.error("API_ERROR endpoint=%s status=%d error=%s detail=%s", endpoint, status, error, detail)
     raise HTTPException(status_code=status, detail={"error": error, "detail": detail})
 
 from database import get_db
@@ -158,10 +160,22 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == req.username).first()
     # Never reveal whether username or password is wrong
     if not user or not verify_password(req.password, user.hashed_password):
+        logger.warning(
+            "LOGIN_FAILURE username=%s ip=%s timestamp=%s",
+            req.username, client_ip, datetime.utcnow().isoformat(),
+        )
         http_err(401, "Unauthorised", "Invalid username or password.")
     if not user.is_active:
+        logger.warning(
+            "LOGIN_FAILURE username=%s ip=%s reason=account_disabled timestamp=%s",
+            req.username, client_ip, datetime.utcnow().isoformat(),
+        )
         http_err(403, "Forbidden", "Account is disabled.")
     token = create_access_token({"sub": user.username, "user_id": user.id, "role": user.role})
+    logger.info(
+        "LOGIN_SUCCESS username=%s ip=%s timestamp=%s",
+        user.username, client_ip, datetime.utcnow().isoformat(),
+    )
     return {"access_token": token, "token_type": "bearer"}
 
 
@@ -244,6 +258,15 @@ async def ingest(
     db.commit()
 
     findings_count = run_detection(db, inserted_ids)
+
+    logger.info(
+        "INGEST_COMPLETE username=%s filename=%s rows=%d findings=%d timestamp=%s",
+        payload.get("sub", "unknown"),
+        file.filename,
+        len(inserted_ids),
+        findings_count,
+        datetime.utcnow().isoformat(),
+    )
 
     return {
         "message": "Ingestion complete.",
